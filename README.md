@@ -1,41 +1,78 @@
-# Sergio Nascimento Jr - Portfolio
+# Portfólio Web
 
-Modern, sophisticated portfolio website built with React, Tailwind CSS, and Framer Motion.
+Este projeto é um portfólio pessoal interativo e moderno, desenvolvido para apresentar habilidades, projetos e experiências profissionais. O site apresenta um design responsivo com tema escuro/neon, animações suaves e elementos 3D interativos.
 
-## Technologies
+## Tabela de Conteúdos
 
-- **Core**: React 18, TypeScript, Vite
-- **Styling**: Tailwind CSS
-- **Animation**: Framer Motion
-- **3D**: React Three Fiber (Three.js)
-- **Icons**: Lucide React
+- [Tecnologias Utilizadas](#tecnologias-utilizadas)
+- [Requisitos para Uso](#requisitos-para-uso)
+- [Instalação em Ambiente Local](#instalação-em-ambiente-local)
+- [Como Iniciar](#como-iniciar)
+- [Como Usar](#como-usar)
+- [Informações Adicionais](#informações-adicionais)
 
-## Setup
+## Tecnologias Utilizadas
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
+O projeto foi construído utilizando uma stack moderna de desenvolvimento web:
 
-2. Start development server:
-   ```bash
-   npm run dev
-   ```
+-   **React**: Biblioteca JavaScript para construção de interfaces de usuário.
+-   **TypeScript**: Superset tipado de JavaScript para maior segurança e escalabilidade.
+-   **Vite**: Build tool rápida para desenvolvimento frontend moderno.
+-   **Tailwind CSS**: Framework CSS utility-first para estilização rápida e responsiva.
+-   **Framer Motion**: Biblioteca para animações declarativas e gestos.
+-   **Three.js / @react-three/fiber**: Renderização de gráficos 3D e efeitos visuais (background de partículas).
+-   **Lucide React**: Biblioteca de ícones leve e consistente.
+-   **React Scroll**: Para navegação suave entre as seções da página.
 
-## Build
+## Requisitos para Uso
 
-To create a production build (suitable for S3 deployment):
+Para rodar este projeto localmente, você precisará ter instalado em sua máquina:
+
+-   **Node.js**: Versão 18 ou superior recomendada.
+-   **Gerenciador de Pacotes**: npm (vem com o Node.js), yarn ou pnpm.
+
+## Instalação em Ambiente Local
+
+1.  Clone o repositório para sua máquina local:
+    ```bash
+    git clone https://github.com/SergioRicJr/portfolio.git
+    ```
+
+2.  Navegue até o diretório do projeto:
+    ```bash
+    cd portfolio
+    ```
+
+3.  Instale as dependências do projeto:
+    ```bash
+    npm install
+    ```
+
+## Como Iniciar
+
+Para iniciar o servidor de desenvolvimento local:
 
 ```bash
-npm run build
+npm run dev
 ```
 
-The output will be in the `dist` directory.
+O terminal exibirá o endereço local (geralmente `http://localhost:5173`) onde você pode acessar a aplicação.
 
-## Deployment
+## Como Usar
 
-This project is designed as a Single Page Application (SPA). When deploying to AWS S3:
+Após iniciar a aplicação, você pode navegar pelas diferentes seções do portfólio:
 
-1. Upload the contents of `dist` to your bucket.
-2. Enable Static Website Hosting.
-3. Set `index.html` as both the Index document and Error document.
+-   **Hero**: Apresentação inicial com efeito 3D interativo.
+-   **Sobre**: Resumo profissional e valores.
+-   **Projetos**: Galeria de projetos desenvolvidos, com links para código e PyPI (quando aplicável).
+-   **Habilidades**: Carrossel infinito mostrando tecnologias e ferramentas.
+-   **Artigos**: Links para publicações no Medium.
+-   **Contato**: Links para redes sociais e email.
+
+Utilize a barra de navegação no topo (ou menu hambúrguer em mobile) para pular diretamente para as seções de interesse. O botão de tema permite alternar entre diferentes paletas de cores (se implementado).
+
+## Informações Adicionais
+
+-   **Design Responsivo**: O layout se adapta a diferentes tamanhos de tela, desde desktops até dispositivos móveis.
+-   **Performance**: Otimizado para carregamento rápido e interações fluidas.
+-   **Customização**: As cores e temas podem ser ajustados através das variáveis CSS e configuração do Tailwind.
