@@ -43,9 +43,9 @@ export const projects = [
     {
         id: "portfolio",
         title: "Portfólio Web",
-        description: "Este projeto é uma API com uma proposta de gerenciar atividades/tarefas a fazer, tipos de atividades e usuários. Porém, o seu diferencial está na qualidade e detalhes de seu desenvolvimento, com sistema de mensageria para confirmação de Email de usuários, gestão de métricas, logs e traces da aplicação com uma stack completa e moderna de observabilidade, pipeline de CI (Integração contínua), documentação de alto nível com Swagger, exemplos e testes manuais com Postman, testes unitários e de integração, padrão de commit, uso do gitflow e muito mais...",
-        tags: [],
-        metrics: [""],
+        description: "Este projeto é um portfólio pessoal interativo e moderno, desenvolvido para apresentar habilidades, projetos e experiências profissionais. O site apresenta um design responsivo com tema escuro/neon, animações suaves e elementos 3D interativos.",
+        tags: ["React", "TypeScript", "Tailwind CSS", "Three.js", "Framer Motion"],
+        metrics: ["Design Responsivo e Moderno", "Background 3D Interativo", "Animações Suaves", "Performance Otimizada"],
         image: "/assets/projects/portfolio.png",
         link: "https://github.com/SergioRicJr/portfolio",
         featured: true
@@ -60,7 +60,7 @@ export const projects = [
         link: "https://github.com/SergioRicJr/visao_computacional",
         featured: true
     },
-    
+
 
 
     {
