@@ -5,7 +5,7 @@ import { GraduationCap, Award } from 'lucide-react';
 export const Education = () => {
     return (
         <SectionWrapper id="education">
-            <h2 className="text-3xl md:text-4xl font-display font-bold mb-12 text-center">
+            <h2 className="text-3xl md:text-4xl font-display font-bold mb-12 text-center text-text-primary">
                 Educação & <span className="text-gradient">Certificações</span>
             </h2>
 
@@ -17,7 +17,7 @@ export const Education = () => {
                         <h3 className="text-2xl font-bold text-text-primary">Formação</h3>
                     </div>
 
-                    <div className="relative border-l border-white/10 ml-3 space-y-8 pl-8">
+                    <div className="relative border-l border-timeline-border ml-3 space-y-8 pl-8">
                         {education.map((edu) => (
                             <div key={edu.id} className="relative">
                                 <div className="absolute -left-[37px] top-1 w-4 h-4 rounded-full bg-dark-bg border-2 border-neon-cyan" />

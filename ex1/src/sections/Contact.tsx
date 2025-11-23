@@ -19,10 +19,10 @@ export const Contact = () => {
     };
 
     return (
-        <SectionWrapper id="contact" className="bg-black/20">
+        <SectionWrapper id="contact" className="bg-section-bg">
             <div className="grid md:grid-cols-2 gap-12 max-w-5xl mx-auto">
                 <div>
-                    <h2 className="text-3xl md:text-4xl font-display font-bold mb-6">
+                    <h2 className="text-3xl md:text-4xl font-display font-bold mb-6 text-text-primary">
                         Vamos <span className="text-gradient">Conversar?</span>
                     </h2>
                     <p className="text-text-secondary mb-8 leading-relaxed">
@@ -58,7 +58,7 @@ export const Contact = () => {
                         <label className="block text-sm font-medium text-text-secondary mb-2">Nome</label>
                         <input
                             {...register("name", { required: true })}
-                            className="w-full px-4 py-3 rounded-lg bg-dark-bg border border-white/10 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan outline-none transition-all text-text-primary placeholder:text-text-secondary/50"
+                            className="w-full px-4 py-3 rounded-lg bg-input-bg border border-input-border focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan outline-none transition-all text-text-primary placeholder:text-text-secondary/50"
                             placeholder="Seu nome"
                         />
                         {errors.name && <span className="text-red-500 text-xs mt-1">Campo obrigatório</span>}
@@ -68,7 +68,7 @@ export const Contact = () => {
                         <label className="block text-sm font-medium text-text-secondary mb-2">Email</label>
                         <input
                             {...register("email", { required: true, pattern: /^\S+@\S+$/i })}
-                            className="w-full px-4 py-3 rounded-lg bg-dark-bg border border-white/10 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan outline-none transition-all text-text-primary placeholder:text-text-secondary/50"
+                            className="w-full px-4 py-3 rounded-lg bg-input-bg border border-input-border focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan outline-none transition-all text-text-primary placeholder:text-text-secondary/50"
                             placeholder="seu@email.com"
                         />
                         {errors.email && <span className="text-red-500 text-xs mt-1">Email inválido</span>}
@@ -79,7 +79,7 @@ export const Contact = () => {
                         <textarea
                             {...register("message", { required: true })}
                             rows={4}
-                            className="w-full px-4 py-3 rounded-lg bg-dark-bg border border-white/10 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan outline-none transition-all resize-none text-text-primary placeholder:text-text-secondary/50"
+                            className="w-full px-4 py-3 rounded-lg bg-input-bg border border-input-border focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan outline-none transition-all resize-none text-text-primary placeholder:text-text-secondary/50"
                             placeholder="Como posso ajudar?"
                         />
                         {errors.message && <span className="text-red-500 text-xs mt-1">Campo obrigatório</span>}

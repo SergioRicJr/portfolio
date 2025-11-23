@@ -4,8 +4,8 @@ import { Calendar, Briefcase } from 'lucide-react';
 
 export const Experience = () => {
     return (
-        <SectionWrapper id="experience" className="bg-black/20">
-            <h2 className="text-3xl md:text-4xl font-display font-bold mb-12 text-center">
+        <SectionWrapper id="experience" className="bg-section-bg">
+            <h2 className="text-3xl md:text-4xl font-display font-bold mb-12 text-center text-text-primary">
                 Experiência <span className="text-gradient">Profissional</span>
             </h2>
 
@@ -43,7 +43,7 @@ export const Experience = () => {
 
                                     <div className={`flex flex-wrap gap-2 ${index % 2 === 0 ? 'md:justify-start' : 'md:justify-end'}`}>
                                         {job.metrics.map((metric, i) => (
-                                            <span key={i} className="px-2 py-1 rounded text-xs bg-neon-violet/10 text-neon-violet border border-neon-violet/20">
+                                            <span key={i} className="px-2 py-1 rounded text-xs bg-metric-bg text-metric-text border border-metric-border">
                                                 {metric}
                                             </span>
                                         ))}

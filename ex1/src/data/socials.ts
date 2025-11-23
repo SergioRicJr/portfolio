@@ -18,11 +18,5 @@ export const socials = [
         url: "mailto:sergioricjr7@gmail.com",
         icon: Mail,
         label: "sergioricjr7@gmail.com"
-    },
-    {
-        name: "WhatsApp",
-        url: "https://wa.me/5515991628338",
-        icon: Phone,
-        label: "+55 (15) 99162-8338"
     }
 ];

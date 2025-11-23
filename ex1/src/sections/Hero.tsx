@@ -10,20 +10,13 @@ export const Hero = () => {
 
             <div className="container mx-auto px-6 relative z-10">
                 <div className="max-w-4xl mx-auto text-center">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
-                        className="inline-block mb-4 px-4 py-1.5 rounded-full border border-neon-cyan/30 bg-neon-cyan/10 text-neon-cyan text-sm font-medium tracking-wide"
-                    >
-                        Disponível para novos projetos
-                    </motion.div>
+                    
 
                     <motion.h1
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5, delay: 0.1 }}
-                        className="text-5xl md:text-7xl font-display font-bold mb-6 leading-tight"
+                        className="text-5xl md:text-7xl font-display font-bold mb-6 leading-tight text-text-primary"
                     >
                         Sergio Nascimento <span className="text-gradient">Jr</span>
                     </motion.h1>
@@ -56,7 +49,7 @@ export const Hero = () => {
                             href="/cv.pdf"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-8 py-4 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 hover:border-neon-cyan/50 transition-all font-medium flex items-center gap-2"
+                            className="px-8 py-4 rounded-full bg-button-bg border border-button-border hover:bg-button-hover-bg hover:border-neon-cyan/50 transition-all font-medium flex items-center gap-2 text-text-primary"
                         >
                             Baixar CV <Download size={20} />
                         </a>
@@ -69,7 +62,7 @@ export const Hero = () => {
                         className="flex flex-wrap justify-center gap-4 text-sm text-text-secondary"
                     >
                         {['Python', 'Microsserviços', 'AWS/GCP', 'Observabilidade'].map((tech) => (
-                            <span key={tech} className="px-4 py-2 rounded-lg bg-white/5 border border-white/5">
+                            <span key={tech} className="px-4 py-2 rounded-lg bg-badge-bg border border-badge-border text-text-primary hover:bg-primary/10 hover:border-primary/30 transition-colors">
                                 {tech}
                             </span>
                         ))}

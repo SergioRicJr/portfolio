@@ -5,8 +5,8 @@ import * as random from 'maath/random/dist/maath-random.esm';
 import * as THREE from 'three';
 import { useTheme } from '../context/ThemeContext';
 
-const PARTICLE_COUNT = 1500;
-const ORB_COUNT = 4;
+const PARTICLE_COUNT = 800;
+const ORB_COUNT = 3;
 
 const vertexShader = /* glsl */ `
 uniform float uTime;
@@ -232,6 +232,12 @@ export const ThreeBackground = () => {
 
     useEffect(() => {
         const handlePointerMove = (event: PointerEvent) => {
+            // Só reage ao mouse se estiver na primeira seção (altura da janela)
+            if (window.scrollY > window.innerHeight) {
+                pointerTarget.current.set(0, 0);
+                return;
+            }
+
             const x = (event.clientX / window.innerWidth) * 2 - 1;
             const y = -(event.clientY / window.innerHeight) * 2 + 1;
             pointerTarget.current.set(x, y);
@@ -241,11 +247,20 @@ export const ThreeBackground = () => {
             pointerTarget.current.set(0, 0);
         };
 
+        const handleScroll = () => {
+            if (window.scrollY > window.innerHeight) {
+                pointerTarget.current.set(0, 0);
+            }
+        };
+
         window.addEventListener('pointermove', handlePointerMove);
         window.addEventListener('pointerleave', handlePointerLeave);
+        window.addEventListener('scroll', handleScroll);
+
         return () => {
             window.removeEventListener('pointermove', handlePointerMove);
             window.removeEventListener('pointerleave', handlePointerLeave);
+            window.removeEventListener('scroll', handleScroll);
         };
     }, []);
 

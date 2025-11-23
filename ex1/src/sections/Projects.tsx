@@ -1,11 +1,11 @@
 import { SectionWrapper } from '../components/SectionWrapper';
 import { projects } from '../data/projects';
-import { Github, Activity } from 'lucide-react';
+import { Github, Activity, Package } from 'lucide-react';
 
 export const Projects = () => {
     return (
-        <SectionWrapper id="projects" className="bg-black/20">
-            <h2 className="text-3xl md:text-4xl font-display font-bold mb-12 text-center">
+        <SectionWrapper id="projects" className="bg-section-bg">
+            <h2 className="text-3xl md:text-4xl font-display font-bold mb-12 text-center text-text-primary">
                 Projetos & <span className="text-gradient">Destaques</span>
             </h2>
 
@@ -30,14 +30,14 @@ export const Projects = () => {
 
                                 <div className="flex flex-wrap gap-2">
                                     {project.tags.map((tag) => (
-                                        <span key={tag} className="px-3 py-1 rounded-full text-xs font-medium bg-white/5 text-text-secondary border border-white/10">
+                                        <span key={tag} className="px-3 py-1 rounded-full text-xs font-medium bg-tag-bg text-text-secondary border border-tag-border">
                                             {tag}
                                         </span>
                                     ))}
                                 </div>
 
                                 {project.metrics.length > 0 && (
-                                    <div className="grid grid-cols-2 gap-4 py-4 border-y border-white/5">
+                                    <div className="grid grid-cols-2 gap-4 py-4 border-y border-divider-border">
                                         {project.metrics.map((metric, i) => (
                                             <div key={i} className="text-sm font-medium text-neon-cyan">
                                                 {metric}
@@ -51,19 +51,33 @@ export const Projects = () => {
                                         href={project.link}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="flex items-center gap-2 px-6 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-sm font-medium"
+                                        className="flex items-center gap-2 px-6 py-3 rounded-lg bg-button-bg hover:bg-button-hover-bg transition-colors text-sm font-medium text-text-primary"
                                     >
                                         <Github size={18} />
-                                        Ver Código
+                                        {project.id === 'placeholder-1' ? 'Ver Perfil' : 'Ver Código'}
                                     </a>
+
+                                    {/* @ts-ignore */}
+                                    {project.pypi && (
+                                        <a
+                                            // @ts-ignore
+                                            href={project.pypi}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-2 px-6 py-3 rounded-lg bg-button-bg hover:bg-button-hover-bg transition-colors text-sm font-medium text-text-primary border border-button-border"
+                                        >
+                                            <Package size={18} />
+                                            Ver no PyPI
+                                        </a>
+                                    )}
                                 </div>
                             </div>
 
-                            <div className="relative h-64 md:h-auto rounded-xl overflow-hidden bg-gradient-to-br from-gray-900 to-black border border-white/5 flex items-center justify-center group-hover:shadow-[0_0_30px_rgba(189,0,255,0.1)] transition-all">
+                            <div className="relative h-64 md:h-auto rounded-xl overflow-hidden bg-gradient-to-br from-gray-900 to-black border border-tag-border flex items-center justify-center group-hover:shadow-[0_0_30px_rgba(189,0,255,0.1)] transition-all">
                                 {/* Placeholder for 3D Mockup or Image */}
                                 <div className="text-center p-6">
-                                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/10 flex items-center justify-center">
-                                        <Activity className="text-gray-600" size={32} />
+                                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-card-placeholder-bg flex items-center justify-center">
+                                        <Activity className="text-card-placeholder-icon" size={32} />
                                     </div>
                                     <p className="text-text-secondary text-sm">Visualização do Projeto</p>
                                 </div>

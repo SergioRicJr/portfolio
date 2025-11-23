@@ -20,8 +20,9 @@ export const Navbar = () => {
     const navLinks = [
         { name: 'Sobre', to: 'about' },
         { name: 'Experiência', to: 'experience' },
-        { name: 'Skills', to: 'skills' },
         { name: 'Projetos', to: 'projects' },
+        { name: 'Skills', to: 'skills' },
+        { name: 'Artigos', to: 'articles' },
         { name: 'Contato', to: 'contact' },
     ];
 
@@ -35,9 +36,9 @@ export const Navbar = () => {
                     <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-neon-cyan to-neon-violet flex items-center justify-center text-dark-bg font-bold text-xl group-hover:scale-110 transition-transform">
                         SN
                     </div>
-                    <span className="font-display font-bold text-xl tracking-wide hidden sm:block">
+                    {/* <span className="font-display font-bold text-xl tracking-wide hidden sm:block text-text-primary">
                         Sergio Nascimento<span className="text-neon-cyan">.</span>
-                    </span>
+                    </span> */}
                 </Link>
 
                 {/* Desktop Menu */}
@@ -59,7 +60,7 @@ export const Navbar = () => {
                         href="/cv.pdf"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-6 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 hover:border-neon-cyan/50 transition-all text-sm font-medium"
+                        className="px-6 py-2 rounded-full bg-button-bg border border-button-border hover:bg-button-hover-bg hover:border-neon-cyan/50 transition-all text-sm font-medium text-text-primary"
                     >
                         CV
                     </a>
