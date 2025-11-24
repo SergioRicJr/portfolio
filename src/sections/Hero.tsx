@@ -45,14 +45,14 @@ export const Hero = () => {
                             Vamos conversar <ArrowRight size={20} />
                         </Link>
 
-                        <a
+                        {/* <a
                             href="/cv.pdf"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-8 py-4 rounded-full bg-button-bg border border-button-border hover:bg-button-hover-bg hover:border-neon-cyan/50 transition-all font-medium flex items-center gap-2 text-text-primary"
                         >
                             Baixar CV <Download size={20} />
-                        </a>
+                        </a> */}
                     </motion.div>
 
                     <motion.div

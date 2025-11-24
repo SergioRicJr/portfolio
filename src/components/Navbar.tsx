@@ -56,14 +56,14 @@ export const Navbar = () => {
                         </Link>
                     ))}
                     <ThemeSwitcher />
-                    <a
+                    {/* <a
                         href="/cv.pdf"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="px-6 py-2 rounded-full bg-button-bg border border-button-border hover:bg-button-hover-bg hover:border-neon-cyan/50 transition-all text-sm font-medium text-text-primary"
                     >
                         CV
-                    </a>
+                    </a> */}
                 </div>
 
                 {/* Mobile Toggle */}
