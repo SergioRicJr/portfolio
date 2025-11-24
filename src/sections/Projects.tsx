@@ -15,7 +15,7 @@ export const Projects = () => {
                         key={project.id}
                         className="group relative rounded-2xl glass-panel overflow-hidden"
                     >
-                        <div className="grid md:grid-cols-2 gap-8 p-8">
+                        <div className={`grid gap-8 p-8 ${project.id !== 'placeholder-1' ? 'md:grid-cols-2' : ''}`}>
                             <div className="space-y-6">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 rounded-lg bg-neon-violet/10 text-neon-violet">
@@ -36,7 +36,7 @@ export const Projects = () => {
                                     ))}
                                 </div>
 
-                                {project.metrics.length > 0 && (
+                                {project.metrics.length > 0 && project.metrics[0] !== "" && (
                                     <div className="grid grid-cols-2 gap-4 py-4 border-y border-divider-border">
                                         {project.metrics.map((metric, i) => (
                                             <div key={i} className="text-sm font-medium text-neon-cyan">
@@ -73,18 +73,32 @@ export const Projects = () => {
                                 </div>
                             </div>
 
-                            <div className="relative h-64 md:h-auto rounded-xl overflow-hidden bg-gradient-to-br from-gray-900 to-black border border-tag-border flex items-center justify-center group-hover:shadow-[0_0_30px_rgba(189,0,255,0.1)] transition-all">
-                                {/* Placeholder for 3D Mockup or Image */}
-                                <div className="text-center p-6">
-                                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-card-placeholder-bg flex items-center justify-center">
-                                        <Activity className="text-card-placeholder-icon" size={32} />
-                                    </div>
-                                    <p className="text-text-secondary text-sm">Visualização do Projeto</p>
-                                </div>
+                            {project.id !== 'placeholder-1' && (
+                                <div className="relative h-64 md:h-auto rounded-xl overflow-hidden bg-gradient-to-br from-gray-900 to-black border border-tag-border flex items-center justify-center group-hover:shadow-[0_0_30px_rgba(189,0,255,0.1)] transition-all">
+                                    {project.image ? (
+                                        <img
+                                            src={project.image}
+                                            alt={project.title}
+                                            className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500"
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = 'none';
+                                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                            }}
+                                        />
+                                    ) : null}
 
-                                {/* Overlay Gradient */}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
-                            </div>
+                                    {/* Placeholder fallback (shown if no image or error) */}
+                                    <div className={`text-center p-6 ${project.image ? 'hidden' : ''}`}>
+                                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-card-placeholder-bg flex items-center justify-center">
+                                            <Activity className="text-card-placeholder-icon" size={32} />
+                                        </div>
+                                        <p className="text-text-secondary text-sm">Visualização do Projeto</p>
+                                    </div>
+
+                                    {/* Overlay Gradient */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
+                                </div>
+                            )}
                         </div>
                     </div>
                 ))}

@@ -43,9 +43,9 @@ export const projects = [
     {
         id: "portfolio",
         title: "Portfólio Web",
-        description: "Este projeto é um portfólio pessoal interativo e moderno, desenvolvido para apresentar habilidades, projetos e experiências profissionais. O site apresenta um design responsivo com tema escuro/neon, animações suaves e elementos 3D interativos.",
-        tags: ["React", "TypeScript", "Tailwind CSS", "Three.js", "Framer Motion"],
-        metrics: ["Design Responsivo e Moderno", "Background 3D Interativo", "Animações Suaves", "Performance Otimizada"],
+        description: "Este projeto é um portfólio pessoal interativo e moderno, desenvolvido para apresentar habilidades, projetos e experiências profissionais. O site apresenta um design responsivo com tema escuro/neon, animações suaves e elementos 3D interativos. Hospedado na AWS com arquitetura de site estático utilizando S3, CloudFront, Route 53, ACM para SSL e deploy automatizado via GitHub Actions.",
+        tags: ["React", "TypeScript", "Tailwind CSS", "Three.js", "Framer Motion", "AWS", "S3", "CloudFront", "Route 53", "GitHub Actions", "CI/CD", "Docker"],
+        metrics: ["Deploy Automatizado com CI/CD", "Infraestrutura na AWS (S3 + CloudFront)", "SSL/TLS com ACM", "DNS Gerenciado via Route 53"],
         image: "/assets/projects/portfolio.png",
         link: "https://github.com/SergioRicJr/portfolio",
         featured: true
