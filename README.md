@@ -192,8 +192,9 @@ GoDaddy (Domínio) → Route 53 (DNS) → CloudFront (CDN) → S3 (Bucket)
   - **Bloqueio de acesso público:** *Bloquear todo acesso público*.
   - **Versionamento:** Desativado.
   - **Criptografia:** SSE-S3.
+  - **⚠️ IMPORTANTE:** **NÃO** configure o bucket como "Static website hosting". O CloudFront acessará o bucket diretamente via endpoint REST.
 
-> ⚠️ *O acesso ao bucket permanecerá privado, pois o CloudFront fará a entrega do conteúdo.*
+> ⚠️ *O acesso ao bucket permanecerá privado, pois o CloudFront fará a entrega do conteúdo através do Origin Access Control (OAC).*
 
 **Para fazer upload dos arquivos:**
 
@@ -239,23 +240,96 @@ Esse registro precisa ser criado no Route 53.
 
 **Principais configurações:**
 
-**5.1 Origem**
-- Tipo: **S3 origin**
-- Selecionar o bucket **sergionascimentojr.com**
-- Usar o endpoint de **Website** se estiver servindo páginas estáticas com redirecionamento interno.
+**5.1 Origem (IMPORTANTE: usar endpoint REST, não website)**
 
-**5.2 Comportamento do Viewer**
+- Tipo: **S3 origin**
+- **Origin domain:** Use o endpoint REST do bucket: `sergionascimentojr.com.s3.amazonaws.com`
+  - ⚠️ **NÃO** use o endpoint de website (que termina em `.s3-website-...`)
+  - O endpoint REST permite manter o bucket privado com OAC
+- **Origin protocol policy:** `HTTPS only`
+
+**5.2 Configurar Origin Access Control (OAC)**
+
+- Na tela de edição do origin, procure a seção **Origin access**
+- Escolha **Origin access control settings (recommended)**
+- Clique em **Create control setting** ou selecione um existente
+- Configure:
+  - **Signing behavior:** `Sign requests (recommended)`
+  - **Signing protocol:** `SigV4`
+- Salve o OAC e associe ao origin
+
+> **Nota:** Se você não ver a opção de OAC, verifique se está usando o endpoint REST (`.s3.amazonaws.com`) e não o endpoint de website.
+
+**5.3 Atualizar Bucket Policy no S3**
+
+Após criar o OAC, o CloudFront fornecerá uma bucket policy sugerida. Aplique-a no S3:
+
+1. Vá em **S3 → Bucket → Permissions → Bucket policy**
+2. Cole a policy sugerida pelo CloudFront (ou use o modelo abaixo, substituindo os valores):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowCloudFrontReadOnly",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "cloudfront.amazonaws.com"
+      },
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::sergionascimentojr.com/*",
+      "Condition": {
+        "StringEquals": {
+          "AWS:SourceArn": "arn:aws:cloudfront::SEU_ID_DE_CONTA:distribution/SEU_DISTRIBUTION_ID"
+        }
+      }
+    }
+  ]
+}
+```
+
+Substitua:
+- `SEU_ID_DE_CONTA`: Seu Account ID da AWS (12 dígitos)
+- `SEU_DISTRIBUTION_ID`: O ID da distribuição do CloudFront
+
+**5.4 Comportamento do Viewer**
+
 - Viewer protocol policy: **Redirect HTTP to HTTPS**
 
-**5.3 Certificado SSL**
+**5.5 Certificado SSL**
+
 - Em **TLS Certificate**:
   - Selecionar o certificado do domínio emitido pelo ACM.
 
-**5.4 Domínio personalizado**
+**5.6 Domínio personalizado**
+
 - Em **Alternate Domain Names (CNAMEs)**:
   - Adicionar: **sergionascimentojr.com**
 
-**5.5 Nome da distribuição**
+**5.7 Default Root Object**
+
+- Em **General** → **Edit**:
+  - **Default root object:** `index.html`
+  - Isso permite acessar o site sem precisar digitar `/index.html`
+
+**5.8 Error Pages (Redirecionar rotas não encontradas)**
+
+Para uma SPA (Single Page Application), configure custom error responses:
+
+1. Vá em **Error pages** → **Create custom error response**
+2. Configure para **403 Forbidden**:
+   - **Customize error response:** Yes
+   - **Response page path:** `/index.html`
+   - **HTTP response code:** `200: OK`
+   - **Error caching minimum TTL:** `0`
+3. Repita o mesmo processo para **404 Not Found**
+4. Salve as alterações
+
+Isso garante que todas as rotas sejam redirecionadas para a página principal.
+
+**5.9 Nome da distribuição**
+
 - Opcional, mas recomendado: usar o nome do domínio.
 
 #### ✅ 6. Criar Registro Final no Route 53 (Alias para CloudFront)
@@ -314,6 +388,41 @@ Com a pipeline do GitHub Actions configurada, o deploy é automático:
 2. Crie um Pull Request (opcional, mas recomendado)
 3. Faça merge na branch `master`
 4. A pipeline será executada automaticamente e fará o deploy
+
+### Troubleshooting
+
+#### Erro 403 Forbidden após deploy
+
+Se você receber um erro `403 Forbidden` com a mensagem "Access Denied" após fazer deploy, verifique:
+
+1. **Origin Access Control (OAC) configurado:**
+   - Verifique se o CloudFront está usando OAC na origem
+   - Confirme que o origin domain termina em `.s3.amazonaws.com` (não `.s3-website-...`)
+
+2. **Bucket Policy aplicada:**
+   - Verifique se a bucket policy no S3 permite acesso do CloudFront
+   - Confirme que o `AWS:SourceArn` na policy corresponde ao ID da sua distribuição
+
+3. **Bucket não configurado como website:**
+   - O bucket **NÃO** deve ter "Static website hosting" habilitado
+   - Use o endpoint REST padrão do S3
+
+4. **Propagação do CloudFront:**
+   - Após alterações no CloudFront, aguarde alguns minutos para a propagação
+   - Crie uma invalidação de cache se necessário
+
+#### Como encontrar o Account ID da AWS
+
+1. Acesse o console da AWS
+2. Clique no seu nome de usuário no canto superior direito
+3. Selecione "Minha conta" (ou "My Account")
+4. O Account ID aparecerá no topo da página (12 dígitos)
+
+#### Como encontrar o CloudFront Distribution ID
+
+1. Acesse o console do CloudFront
+2. Na lista de distribuições, localize a distribuição do seu domínio
+3. O Distribution ID aparecerá na primeira coluna (formato: `E12ABC345D6789`)
 
 ## Informações Adicionais
 
