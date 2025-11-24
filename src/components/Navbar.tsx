@@ -19,7 +19,7 @@ export const Navbar = () => {
 
     const navLinks = [
         { name: 'Sobre', to: 'about' },
-        { name: 'Experiência', to: 'experience' },
+        // { name: 'Experiência', to: 'experience' },
         { name: 'Projetos', to: 'projects' },
         { name: 'Skills', to: 'skills' },
         { name: 'Artigos', to: 'articles' },
