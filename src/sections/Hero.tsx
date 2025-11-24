@@ -61,7 +61,7 @@ export const Hero = () => {
                         transition={{ duration: 1, delay: 0.8 }}
                         className="flex flex-wrap justify-center gap-4 text-sm text-text-secondary"
                     >
-                        {['Python', 'Microsserviços', 'AWS/GCP', 'Observabilidade'].map((tech) => (
+                        {['Python', 'AI/LLM', 'AWS/GCP', 'Observabilidade', 'Arquitetura de Software'].map((tech) => (
                             <span key={tech} className="px-4 py-2 rounded-lg bg-badge-bg border border-badge-border text-text-primary hover:bg-primary/10 hover:border-primary/30 transition-colors">
                                 {tech}
                             </span>
