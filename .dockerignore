@@ -1,0 +1,36 @@
+# Dependências
+node_modules
+npm-debug.log
+package-lock.json
+
+# Build
+dist
+build
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Testes
+coverage
+.nyc_output
+
+# Outros
+README.md
+*.md
+

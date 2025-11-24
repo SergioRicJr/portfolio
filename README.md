@@ -11,6 +11,8 @@ Este projeto é um portfólio pessoal interativo e moderno, desenvolvido para ap
 - [Instalação em Ambiente Local](#instalação-em-ambiente-local)
 - [Como Iniciar](#como-iniciar)
 - [Como Usar](#como-usar)
+- [Build com Docker](#build-com-docker)
+- [CI/CD com GitHub Actions](#cicd-com-github-actions)
 - [Deploy e Publicação na Nuvem](#deploy-e-publicação-na-nuvem)
 - [Informações Adicionais](#informações-adicionais)
 
@@ -27,7 +29,7 @@ O projeto foi construído utilizando uma stack moderna de desenvolvimento web:
 -   **Framer Motion**: Biblioteca para animações declarativas e gestos.
 -   **Three.js / @react-three/fiber**: Renderização de gráficos 3D e efeitos visuais (background de partículas).
 -   **Lucide React**: Biblioteca de ícones leve e consistente.
--   **React Scroll**: Para navegação suave entre as seções da página..
+-   **React Scroll**: Para navegação suave entre as seções da página.
 
 ### Infraestrutura e Deploy
 
@@ -36,6 +38,8 @@ O projeto foi construído utilizando uma stack moderna de desenvolvimento web:
 -   **AWS Certificate Manager (ACM)**: Gerenciamento de certificados SSL/TLS.
 -   **Amazon Route 53**: Serviço de DNS para gerenciamento de domínio.
 -   **GoDaddy**: Registro e gerenciamento inicial do domínio.
+-   **Docker**: Containerização para builds consistentes.
+-   **GitHub Actions**: CI/CD para deploy automático.
 
 ## Requisitos para Uso
 
@@ -83,6 +87,66 @@ Após iniciar a aplicação, você pode navegar pelas diferentes seções do por
 -   **Contato**: Links para redes sociais e email.
 
 Utilize a barra de navegação no topo (ou menu hambúrguer em mobile) para pular diretamente para as seções de interesse. O botão de tema permite alternar entre diferentes paletas de cores (se implementado).
+
+## Build com Docker
+
+O `Dockerfile` foi pensado para **compilar o projeto** em um ambiente isolado e gerar a pasta `dist/`. Nenhum servidor é iniciado dentro do container.
+
+### Construir a imagem
+
+```bash
+docker build -t portfolio-builder:latest .
+```
+
+### Exportar os artefatos de build
+
+```bash
+docker create --name portfolio-build-temp portfolio-builder:latest
+docker cp portfolio-build-temp:/app/dist ./dist
+docker rm portfolio-build-temp
+```
+
+> Dica: se quiser evitar criar/remover containers manualmente, use ferramentas como `dive` ou `ctr` para inspecionar camadas e extrair a pasta `dist/`.
+
+## CI/CD com GitHub Actions
+
+O projeto inclui uma pipeline automatizada que faz deploy para o S3 sempre que há um merge na branch `master`.
+
+### Configuração
+
+Para que a pipeline funcione, você precisa configurar os seguintes secrets no GitHub:
+
+1. **AWS_ACCESS_KEY_ID**: Chave de acesso da AWS
+2. **AWS_SECRET_ACCESS_KEY**: Chave secreta da AWS
+3. **CLOUDFRONT_DISTRIBUTION_ID**: ID da distribuição do CloudFront (opcional, mas recomendado)
+
+### Como configurar os secrets
+
+1. Acesse o repositório no GitHub
+2. Vá em **Settings** → **Secrets and variables** → **Actions**
+3. Clique em **New repository secret**
+4. Adicione cada um dos secrets mencionados acima
+
+### O que a pipeline faz
+
+1. ✅ Faz checkout do código
+2. ✅ Instala as dependências
+3. ✅ Executa o lint (não bloqueia o deploy em caso de warnings)
+4. ✅ Faz o build do projeto
+5. ✅ Sincroniza os arquivos com o S3 (com estratégias de cache otimizadas)
+6. ✅ Invalida o cache do CloudFront
+7. ✅ Notifica sobre o sucesso do deploy
+
+### Estratégia de Cache
+
+A pipeline utiliza diferentes estratégias de cache para otimizar o desempenho:
+
+- **Arquivos estáticos** (JS, CSS, imagens): Cache longo (`max-age=31536000`)
+- **Arquivos HTML e JSON**: Cache curto (`max-age=0`) para garantir atualizações imediatas
+
+### Execução manual
+
+A pipeline também pode ser executada manualmente através da aba **Actions** no GitHub, selecionando o workflow e clicando em **Run workflow**.
 
 ## Deploy e Publicação na Nuvem
 
@@ -217,9 +281,11 @@ Após a propagação:
    - Exibir conteúdo hospedado no bucket S3
    - Ser entregue pelo CloudFront
 
-### Processo de Deploy
+### Processo de Deploy Manual
 
-Após configurar a infraestrutura inicial, para fazer deploy de atualizações:
+> **Nota:** O deploy automático via GitHub Actions é recomendado. Use este processo apenas se necessário fazer deploy manual.
+
+Após configurar a infraestrutura inicial, para fazer deploy manual de atualizações:
 
 1. **Build do projeto:**
    ```bash
@@ -235,6 +301,19 @@ Após configurar a infraestrutura inicial, para fazer deploy de atualizações:
 
 3. **Invalidar cache do CloudFront (opcional):**
    - No console do CloudFront, criar uma invalidação para `/*` para garantir que as mudanças sejam refletidas imediatamente.
+   - Ou usar AWS CLI:
+     ```bash
+     aws cloudfront create-invalidation --distribution-id SEU_DISTRIBUTION_ID --paths "/*"
+     ```
+
+### Deploy Automático (Recomendado)
+
+Com a pipeline do GitHub Actions configurada, o deploy é automático:
+
+1. Faça suas alterações no código
+2. Crie um Pull Request (opcional, mas recomendado)
+3. Faça merge na branch `master`
+4. A pipeline será executada automaticamente e fará o deploy
 
 ## Informações Adicionais
 
