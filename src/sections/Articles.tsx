@@ -1,16 +1,16 @@
 import { SectionWrapper } from '../components/SectionWrapper';
 import { articles } from '../data/articles';
-import { BookOpen, ExternalLink, Calendar, Sparkles } from 'lucide-react';
+import { ExternalLink, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export const Articles = () => {
-    const formatDate = (date?: string) => {
-        if (!date) return '';
-        return new Date(date).toLocaleDateString('pt-BR', {
-            year: 'numeric',
-            month: 'long'
-        });
-    };
+    // const formatDate = (date?: string) => {
+    //     if (!date) return '';
+    //     return new Date(date).toLocaleDateString('pt-BR', {
+    //         year: 'numeric',
+    //         month: 'long'
+    //     });
+    // };
 
     return (
         <SectionWrapper id="articles" className="bg-section-bg">
