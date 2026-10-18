@@ -57,10 +57,8 @@ export const Projects = () => {
                                         {project.id === 'placeholder-1' ? 'Ver Perfil' : 'Ver Código'}
                                     </a>
 
-                                    {/* @ts-ignore */}
                                     {project.pypi && (
                                         <a
-                                            // @ts-ignore
                                             href={project.pypi}
                                             target="_blank"
                                             rel="noopener noreferrer"

@@ -1,9 +1,8 @@
 import { type MutableRefObject, useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-// @ts-ignore - tipos do maath não expostos
-import * as random from 'maath/random/dist/maath-random.esm';
+import * as random from 'maath/random';
 import * as THREE from 'three';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../context/useTheme';
 
 const PARTICLE_COUNT = 800;
 const ORB_COUNT = 3;

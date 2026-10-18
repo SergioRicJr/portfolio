@@ -2,7 +2,7 @@
 
 Este projeto é um portfólio pessoal interativo e moderno, desenvolvido para apresentar habilidades, projetos e experiências profissionais. O site apresenta um design responsivo com tema escuro/neon, animações suaves e elementos 3D interativos.
 
-**🌐 Site em produção:** [https://sergionascimentojr.com](https://sergionascimentojr.com)
+**🌐 Domínio do portfólio:** [https://sergionascimentojr.com](https://sergionascimentojr.com)
 
 ## Tabela de Conteúdos
 
@@ -33,19 +33,20 @@ O projeto foi construído utilizando uma stack moderna de desenvolvimento web:
 
 ### Infraestrutura e Deploy
 
--   **Amazon S3**: Armazenamento estático para hospedagem do site.
--   **Amazon CloudFront**: CDN para distribuição global de conteúdo com baixa latência.
--   **AWS Certificate Manager (ACM)**: Gerenciamento de certificados SSL/TLS.
--   **Amazon Route 53**: Serviço de DNS para gerenciamento de domínio.
--   **GoDaddy**: Registro e gerenciamento inicial do domínio.
+-   **Magalu Cloud Object Storage**: Bucket privado com arquivos compilados de leitura pública por ACL, usando API compatível com S3.
+-   **Cloudflare Workers**: Entrega o conteúdo do bucket por HTTPS nos domínios personalizados.
+-   **Cloudflare DNS**: Gerencia os registros do domínio e seu apontamento para o Worker.
+-   **GoDaddy**: Mantém o registro do domínio.
 -   **Docker**: Containerização para builds consistentes.
 -   **GitHub Actions**: CI/CD para deploy automático.
+
+A migração está preparada no repositório e exige provisionamento e validação antes do corte do domínio. Preserve os recursos anteriores para rollback durante essa transição. O [guia de deploy na Magalu Cloud](docs/deploy-magalu.md) detalha a configuração, a validação e o rollback.
 
 ## Requisitos para Uso
 
 Para rodar este projeto localmente, você precisará ter instalado em sua máquina:
 
--   **Node.js**: Versão 18 ou superior recomendada.
+-   **Node.js**: Versão 22 ou superior para os comandos de aplicação e Worker.
 -   **Gerenciador de Pacotes**: npm (vem com o Node.js), yarn ou pnpm.
 
 ## Instalação em Ambiente Local
@@ -110,319 +111,51 @@ docker rm portfolio-build-temp
 
 ## CI/CD com GitHub Actions
 
-O projeto inclui uma pipeline automatizada que faz deploy para o S3 sempre que há um merge na branch `master`.
+O workflow [ci.yml](.github/workflows/ci.yml) valida e compila o projeto em pushes e Pull Requests para `master`. O [deploy.yml](.github/workflows/deploy.yml) publica a branch `master` por push ou execução manual, somente quando `MGC_DEPLOY_ENABLED` tem o valor `true`.
 
-### Configuração
+Em **Settings → Secrets and variables → Actions** do repositório, configure:
 
-Para que a pipeline funcione, você precisa configurar os seguintes secrets no GitHub:
+- Variáveis: `MGC_S3_ENDPOINT`, `MGC_REGION`, `MGC_BUCKET` e, após validar o ambiente, `MGC_DEPLOY_ENABLED=true`.
+- Secrets: `MGC_ACCESS_KEY_ID` e `MGC_SECRET_ACCESS_KEY`, com o par de credenciais de Object Storage emitido pela Magalu Cloud.
 
-1. **AWS_ACCESS_KEY_ID**: Chave de acesso da AWS
-2. **AWS_SECRET_ACCESS_KEY**: Chave secreta da AWS
-3. **CLOUDFRONT_DISTRIBUTION_ID**: ID da distribuição do CloudFront (opcional, mas recomendado)
+Os nomes de credenciais `AWS_*` usados internamente pelo cliente S3 são apenas compatibilidade de protocolo. As credenciais e o endpoint devem ser da Magalu Cloud. O workflow não precisa de credenciais AWS nem invalida o CloudFront.
 
-### Como configurar os secrets
+A credencial escolhida para a conta pessoal é `portfolio-github-actions`, com acesso total ao Object Storage e sem expiração, aprovada pelo titular para uso dedicado no GitHub Actions. Ela não é limitada ao bucket. Guarde o par S3 apenas nos secrets indicados, sem incluí-lo no código ou em variáveis Vite.
 
-1. Acesse o repositório no GitHub
-2. Vá em **Settings** → **Secrets and variables** → **Actions**
-3. Clique em **New repository secret**
-4. Adicione cada um dos secrets mencionados acima
-
-### O que a pipeline faz
-
-1. ✅ Faz checkout do código
-2. ✅ Instala as dependências
-3. ✅ Executa o lint (não bloqueia o deploy em caso de warnings)
-4. ✅ Faz o build do projeto
-5. ✅ Sincroniza os arquivos com o S3 (com estratégias de cache otimizadas)
-6. ✅ Invalida o cache do CloudFront
-7. ✅ Notifica sobre o sucesso do deploy
-
-### Estratégia de Cache
-
-A pipeline utiliza diferentes estratégias de cache para otimizar o desempenho:
-
-- **Arquivos estáticos** (JS, CSS, imagens): Cache longo (`max-age=31536000`)
-- **Arquivos HTML e JSON**: Cache curto (`max-age=0`) para garantir atualizações imediatas
-
-### Execução manual
-
-A pipeline também pode ser executada manualmente através da aba **Actions** no GitHub, selecionando o workflow e clicando em **Run workflow**.
+Consulte os detalhes em [.github/workflows/README.md](.github/workflows/README.md) e no [guia completo de migração](docs/deploy-magalu.md).
 
 ## Deploy e Publicação na Nuvem
 
-Este projeto está hospedado na AWS utilizando uma arquitetura de site estático com domínio personalizado. O processo completo envolve a configuração de **GoDaddy + Route 53 + S3 + SSL (ACM) + CloudFront**.
+O destino preparado para o site estático é:
 
-### Visão Geral da Arquitetura
-
-```
-GoDaddy (Domínio) → Route 53 (DNS) → CloudFront (CDN) → S3 (Bucket)
-                                      ↓
-                                   ACM (SSL)
+```text
+GoDaddy (registro do domínio)
+  → Cloudflare (DNS, Worker e certificado HTTPS)
+    → Magalu Cloud Object Storage (arquivos de dist/)
 ```
 
-### Guia Completo de Configuração
+Essa arquitetura usa a Cloudflare como dependência para entrega e HTTPS de `sergionascimentojr.com` e `www.sergionascimentojr.com`, seguindo o [guia oficial da Magalu](https://docs.magalu.cloud/docs/storage/object-storage/use-cases/static-website/). O domínio continua registrado na GoDaddy e a zona já está ativa na conta Cloudflare de destino. Preserve os recursos anteriores até a validação final e durante o período de rollback.
 
-#### ✅ 1. Configurar o Domínio no Route 53
+Cada upload usa `--acl public-read`, preservando o controle do proprietário sobre o objeto. O bucket continua privado, sem listagem anônima; não é necessário criar Bucket Policy para esta configuração. Consulte as [ACLs oficiais da Magalu](https://docs.magalu.cloud/docs/storage/object-storage/how-to/permissions/acls-ht).
 
-**1.1 Criar uma Zona Hospedada**
+### Verificação local
 
-- Serviço: **Route 53**
-- Ação:
-  - Criar uma **Hosted Zone** do tipo **Pública**.
-  - Nome da zona: **sergionascimentojr.com**.
-- Resultado: A AWS gera automaticamente quatro **Name Servers (NS)**.
-
-**1.2 Configurar os Name Servers na GoDaddy**
-
-1. Acessar o painel da GoDaddy.
-2. Ir em **DNS** → **Servidores de Nome** → **Alterar servidores de nome**.
-3. Selecionar **Usar meus próprios servidores de nome**.
-4. Copiar e colar **exatamente os quatro NS** gerados pelo Route 53.
-5. Salvar.
-
-> **Importante:** A propagação pode levar até alguns minutos, mas normalmente é rápida.
-
-#### ✅ 2. Criar o Bucket S3 para o Site Estático
-
-- Serviço: **Amazon S3**
-- Configurações:
-  - **Nome do bucket:** `sergionascimentojr.com` *(precisa ser idêntico ao domínio)*
-  - **Tipo:** Propósito geral.
-  - **ACLs:** Desabilitadas.
-  - **Bloqueio de acesso público:** *Bloquear todo acesso público*.
-  - **Versionamento:** Desativado.
-  - **Criptografia:** SSE-S3.
-  - **⚠️ IMPORTANTE:** **NÃO** configure o bucket como "Static website hosting". O CloudFront acessará o bucket diretamente via endpoint REST.
-
-> ⚠️ *O acesso ao bucket permanecerá privado, pois o CloudFront fará a entrega do conteúdo através do Origin Access Control (OAC).*
-
-**Para fazer upload dos arquivos:**
-
-1. Execute o build do projeto:
-   ```bash
-   npm run build
-   ```
-
-2. Faça upload do conteúdo da pasta `dist/` para o bucket S3.
-
-#### ✅ 3. Solicitar Certificado SSL no ACM
-
-- Serviço: **AWS Certificate Manager (ACM)**
-  *(importante: o certificado **deve ser solicitado na região us-east-1** para uso no CloudFront).*
-
-**Configurações:**
-
-- Tipo: **Certificado Público**
-- Nome: **sergionascimentojr.com**
-- Exportação: Desabilitada
-- Método de validação: **DNS Validation**
-- Algoritmo da chave: **RSA 2048**
-
-Após solicitar, o ACM fornecerá **um registro CNAME** contendo:
-- Nome
-- Valor
-
-Esse registro precisa ser criado no Route 53.
-
-#### ✅ 4. Validar o Domínio no Route 53 (CNAME)
-
-- Serviço: **Route 53**
-- Ação:
-  - Criar um registro do tipo **CNAME**.
-  - Nome: fornecido pelo ACM.
-  - Valor: fornecido pelo ACM.
-
-> Assim que o registro for validado, o certificado será automaticamente emitido.
-
-#### ✅ 5. Criar Distribuição no CloudFront
-
-- Serviço: **Amazon CloudFront**
-
-**Principais configurações:**
-
-**5.1 Origem (IMPORTANTE: usar endpoint REST, não website)**
-
-- Tipo: **S3 origin**
-- **Origin domain:** Use o endpoint REST do bucket: `sergionascimentojr.com.s3.amazonaws.com`
-  - ⚠️ **NÃO** use o endpoint de website (que termina em `.s3-website-...`)
-  - O endpoint REST permite manter o bucket privado com OAC
-- **Origin protocol policy:** `HTTPS only`
-
-**5.2 Configurar Origin Access Control (OAC)**
-
-- Na tela de edição do origin, procure a seção **Origin access**
-- Escolha **Origin access control settings (recommended)**
-- Clique em **Create control setting** ou selecione um existente
-- Configure:
-  - **Signing behavior:** `Sign requests (recommended)`
-  - **Signing protocol:** `SigV4`
-- Salve o OAC e associe ao origin
-
-> **Nota:** Se você não ver a opção de OAC, verifique se está usando o endpoint REST (`.s3.amazonaws.com`) e não o endpoint de website.
-
-**5.3 Atualizar Bucket Policy no S3**
-
-Após criar o OAC, o CloudFront fornecerá uma bucket policy sugerida. Aplique-a no S3:
-
-1. Vá em **S3 → Bucket → Permissions → Bucket policy**
-2. Cole a policy sugerida pelo CloudFront (ou use o modelo abaixo, substituindo os valores):
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "AllowCloudFrontReadOnly",
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "cloudfront.amazonaws.com"
-      },
-      "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::sergionascimentojr.com/*",
-      "Condition": {
-        "StringEquals": {
-          "AWS:SourceArn": "arn:aws:cloudfront::SEU_ID_DE_CONTA:distribution/SEU_DISTRIBUTION_ID"
-        }
-      }
-    }
-  ]
-}
+```bash
+npm ci
+npm run test:deploy
+npm run worker:check
+npm run build
 ```
 
-Substitua:
-- `SEU_ID_DE_CONTA`: Seu Account ID da AWS (12 dígitos)
-- `SEU_DISTRIBUTION_ID`: O ID da distribuição do CloudFront
+### Publicação
 
-**5.4 Comportamento do Viewer**
+1. Confira o bucket privado e configure os secrets da Magalu Cloud conforme o [guia](docs/deploy-magalu.md).
+2. Configure as variáveis do destino e publique o build com `python scripts/deploy-magalu.py`.
+3. Confira `MGC_BUCKET_HOST`, a conta de destino e os Custom Domains já versionados em [infra/cloudflare/wrangler.jsonc](infra/cloudflare/wrangler.jsonc). Com uma autenticação autorizada nessa conta, execute `npm run worker:deploy`.
+4. Valide `workers.dev` e os dois domínios configurados. Para uma instalação nova ou outro domínio, siga o preparo separado de teste e corte descrito no guia.
+5. Ative `MGC_DEPLOY_ENABLED=true` no GitHub quando o destino estiver validado.
 
-- Viewer protocol policy: **Redirect HTTP to HTTPS**
-
-**5.5 Certificado SSL**
-
-- Em **TLS Certificate**:
-  - Selecionar o certificado do domínio emitido pelo ACM.
-
-**5.6 Domínio personalizado**
-
-- Em **Alternate Domain Names (CNAMEs)**:
-  - Adicionar: **sergionascimentojr.com**
-
-**5.7 Default Root Object**
-
-- Em **General** → **Edit**:
-  - **Default root object:** `index.html`
-  - Isso permite acessar o site sem precisar digitar `/index.html`
-
-**5.8 Error Pages (Redirecionar rotas não encontradas)**
-
-Para uma SPA (Single Page Application), configure custom error responses:
-
-1. Vá em **Error pages** → **Create custom error response**
-2. Configure para **403 Forbidden**:
-   - **Customize error response:** Yes
-   - **Response page path:** `/index.html`
-   - **HTTP response code:** `200: OK`
-   - **Error caching minimum TTL:** `0`
-3. Repita o mesmo processo para **404 Not Found**
-4. Salve as alterações
-
-Isso garante que todas as rotas sejam redirecionadas para a página principal.
-
-**5.9 Nome da distribuição**
-
-- Opcional, mas recomendado: usar o nome do domínio.
-
-#### ✅ 6. Criar Registro Final no Route 53 (Alias para CloudFront)
-
-- Serviço: **Route 53**
-- Ação:
-  - Criar um registro do tipo **A (Address record)**.
-  - Nome: **sergionascimentojr.com**
-  - Habilitar **Alias**.
-  - Selecionar:
-    - **Alias to CloudFront distribution**
-    - A distribuição criada no passo 5.
-
-> Isso garante que o domínio aponte para o CloudFront, que entrega o conteúdo do S3 com HTTPS ativado.
-
-#### ✅ 7. Teste Final
-
-Após a propagação:
-
-1. Acesse: [https://sergionascimentojr.com](https://sergionascimentojr.com)
-2. O site deve:
-   - Carregar via HTTPS
-   - Exibir conteúdo hospedado no bucket S3
-   - Ser entregue pelo CloudFront
-
-### Processo de Deploy Manual
-
-> **Nota:** O deploy automático via GitHub Actions é recomendado. Use este processo apenas se necessário fazer deploy manual.
-
-Após configurar a infraestrutura inicial, para fazer deploy manual de atualizações:
-
-1. **Build do projeto:**
-   ```bash
-   npm run build
-   ```
-
-2. **Upload para S3:**
-   - Fazer upload do conteúdo da pasta `dist/` para o bucket S3.
-   - Ou usar AWS CLI:
-     ```bash
-     aws s3 sync dist/ s3://sergionascimentojr.com --delete
-     ```
-
-3. **Invalidar cache do CloudFront (opcional):**
-   - No console do CloudFront, criar uma invalidação para `/*` para garantir que as mudanças sejam refletidas imediatamente.
-   - Ou usar AWS CLI:
-     ```bash
-     aws cloudfront create-invalidation --distribution-id SEU_DISTRIBUTION_ID --paths "/*"
-     ```
-
-### Deploy Automático (Recomendado)
-
-Com a pipeline do GitHub Actions configurada, o deploy é automático:
-
-1. Faça suas alterações no código
-2. Crie um Pull Request (opcional, mas recomendado)
-3. Faça merge na branch `master`
-4. A pipeline será executada automaticamente e fará o deploy
-
-### Troubleshooting
-
-#### Erro 403 Forbidden após deploy
-
-Se você receber um erro `403 Forbidden` com a mensagem "Access Denied" após fazer deploy, verifique:
-
-1. **Origin Access Control (OAC) configurado:**
-   - Verifique se o CloudFront está usando OAC na origem
-   - Confirme que o origin domain termina em `.s3.amazonaws.com` (não `.s3-website-...`)
-
-2. **Bucket Policy aplicada:**
-   - Verifique se a bucket policy no S3 permite acesso do CloudFront
-   - Confirme que o `AWS:SourceArn` na policy corresponde ao ID da sua distribuição
-
-3. **Bucket não configurado como website:**
-   - O bucket **NÃO** deve ter "Static website hosting" habilitado
-   - Use o endpoint REST padrão do S3
-
-4. **Propagação do CloudFront:**
-   - Após alterações no CloudFront, aguarde alguns minutos para a propagação
-   - Crie uma invalidação de cache se necessário
-
-#### Como encontrar o Account ID da AWS
-
-1. Acesse o console da AWS
-2. Clique no seu nome de usuário no canto superior direito
-3. Selecione "Minha conta" (ou "My Account")
-4. O Account ID aparecerá no topo da página (12 dígitos)
-
-#### Como encontrar o CloudFront Distribution ID
-
-1. Acesse o console do CloudFront
-2. Na lista de distribuições, localize a distribuição do seu domínio
-3. O Distribution ID aparecerá na primeira coluna (formato: `E12ABC345D6789`)
+O deploy do Worker é manual e a configuração versionada já gerencia os Custom Domains `sergionascimentojr.com` e `www.sergionascimentojr.com`. Alterações nessa configuração podem afetar o roteamento de produção. O procedimento completo, incluindo preparo de uma instalação nova, DNS, HTTPS e recuperação, está em [docs/deploy-magalu.md](docs/deploy-magalu.md).
 
 ## Informações Adicionais
 

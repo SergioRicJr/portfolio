@@ -1,75 +1,63 @@
-name: Deploy to S3
+name: Deploy to Magalu Cloud
 
 on:
   push:
-    branches:
-      - master
-  workflow_dispatch: # Permite execução manual
+    branches: [master]
+  workflow_dispatch:
 
-env:
-  AWS_REGION: us-east-1
-  S3_BUCKET: sergionascimentojr.com
-  CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+permissions:
+  contents: read
+
+# Finish each publication before starting the next one, including manual runs.
+concurrency:
+  group: magalu-production
+  cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
-    name: Build and Deploy to S3
+  deploy:
+    if: >-
+      github.ref == 'refs/heads/master' &&
+      vars.MGC_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MGC_S3_ENDPOINT: ${{ vars.MGC_S3_ENDPOINT }}
+      MGC_REGION: ${{ vars.MGC_REGION }}
+      MGC_BUCKET: ${{ vars.MGC_BUCKET }}
 
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: '22'
+          cache: npm
 
-      - name: Instalar dependências
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate Magalu configuration
+        run: python scripts/deploy-magalu.py --validate
+
+      - name: Install dependencies
         run: npm ci
 
-      - name: Executar lint
+      - name: Lint
         run: npm run lint
-        continue-on-error: true # Não falha o deploy se houver warnings de lint
 
-      - name: Build do projeto
+      - name: Test deployment
+        run: npm run test:deploy
+
+      - name: Build
         run: npm run build
 
-      - name: Configurar AWS CLI
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Sincronizar arquivos com S3
+      - name: Publish and verify Magalu objects
+        # These are Magalu credentials. The CLI only calls MGC_S3_ENDPOINT.
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.MGC_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.MGC_SECRET_ACCESS_KEY }}
         run: |
-          aws s3 sync dist/ s3://${{ env.S3_BUCKET }} \
-            --delete \
-            --exact-timestamps \
-            --cache-control "public, max-age=31536000, immutable" \
-            --exclude "*.html" \
-            --exclude "*.json"
-        
-      - name: Upload arquivos HTML e JSON com cache curto
-        run: |
-          aws s3 sync dist/ s3://${{ env.S3_BUCKET }} \
-            --delete \
-            --exact-timestamps \
-            --cache-control "public, max-age=0, must-revalidate" \
-            --include "*.html" \
-            --include "*.json"
-
-      - name: Invalidar cache do CloudFront
-        if: env.CLOUDFRONT_DISTRIBUTION_ID != ''
-        run: |
-          aws cloudfront create-invalidation \
-            --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --paths "/*"
-
-      - name: Deploy concluído
-        run: |
-          echo "✅ Deploy concluído com sucesso!"
-          echo "🌐 Site disponível em: https://${{ env.S3_BUCKET }}"
+          aws --version
+          python scripts/deploy-magalu.py
 

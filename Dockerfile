@@ -1,7 +1,7 @@
 # Dockerfile para build do projeto Portfólio
 
 # Imagem base
-FROM node:18-alpine
+FROM node:22-alpine
 
 # Definir diretório de trabalho
 WORKDIR /app
