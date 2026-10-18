@@ -1,0 +1,18 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "portfolio-magalu",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "upload_source_maps": true,
+  // Test workers.dev before associating production domains in the dashboard.
+  "workers_dev": true,
+  "routes": [],
+  "vars": {
+    "MGC_BUCKET_HOST": "portfolio-sergio-prod.br-se1.magaluobjects.com"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  }
+}

@@ -4,11 +4,17 @@ import { Send, CheckCircle } from 'lucide-react';
 import { useState } from 'react';
 import { socials } from '../data/socials';
 
+type ContactFormValues = {
+    name: string;
+    email: string;
+    message: string;
+};
+
 export const Contact = () => {
-    const { register, handleSubmit, formState: { errors }, reset } = useForm();
+    const { register, handleSubmit, formState: { errors }, reset } = useForm<ContactFormValues>();
     const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
-    const onSubmit = async (data: any) => {
+    const onSubmit = async (data: ContactFormValues) => {
         console.log(data);
         // Simulate API call
         setStatus('success');

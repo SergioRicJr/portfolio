@@ -1,74 +1,41 @@
-# GitHub Actions Workflow
+# GitHub Actions
 
-Este diretório contém os workflows de CI/CD do projeto.
+O workflow [ci.yml](ci.yml) valida e compila o portfólio em pushes e Pull Requests para `master`. O [deploy.yml](deploy.yml) repete as verificações e publica no bucket de Object Storage da Magalu Cloud quando habilitado. A entrega por HTTPS e domínio próprio é feita por um Worker da Cloudflare, publicado separadamente.
 
-## Workflow: deploy.yml
+## Execução
 
-Este workflow automatiza o processo de deploy do portfólio para o Amazon S3 e invalida o cache do CloudFront.
+- Push para `master`.
+- Pull Requests para `master`, apenas para validação pelo `ci.yml`.
+- Execução manual em **Actions → workflow de deploy → Run workflow**.
 
-### Triggers
+O upload exige a variável de repositório `MGC_DEPLOY_ENABLED` com o valor exato `true` e não é executado em Pull Requests. Deixe a variável ausente ou com `false` durante a preparação.
 
-- Push para a branch `master`
-- Execução manual via GitHub Actions UI
+## Variáveis e secrets
 
-### Secrets Necessários
+Em **Settings → Secrets and variables → Actions → Variables**, crie:
 
-Configure os seguintes secrets no repositório GitHub:
+- `MGC_S3_ENDPOINT`: endpoint HTTPS da região, por exemplo `https://br-se1.magaluobjects.com`. Confirme o valor no console da Magalu.
+- `MGC_REGION`: região correspondente, por exemplo `br-se1`.
+- `MGC_BUCKET`: nome do bucket, por exemplo `portfolio-sergio-prod`.
+- `MGC_DEPLOY_ENABLED`: comece com `false`; altere para `true` após a validação descrita no [guia de migração](../../docs/deploy-magalu.md).
 
-1. **AWS_ACCESS_KEY_ID**
-   - Chave de acesso da AWS
-   - Permissões necessárias: `s3:PutObject`, `s3:DeleteObject`, `s3:ListBucket`, `cloudfront:CreateInvalidation`
+Em **Secrets → New repository secret**, crie:
 
-2. **AWS_SECRET_ACCESS_KEY**
-   - Chave secreta da AWS
-   - Deve corresponder ao `AWS_ACCESS_KEY_ID`
+- `MGC_ACCESS_KEY_ID`: **Key Pair ID** do Object Storage da Magalu Cloud.
+- `MGC_SECRET_ACCESS_KEY`: **Key Pair Secret** correspondente.
 
-3. **CLOUDFRONT_DISTRIBUTION_ID** (opcional)
-   - ID da distribuição do CloudFront
-   - Se não configurado, a invalidação de cache será pulada
+A API Key geral da Magalu Cloud não substitui esse par S3. Configure as credenciais da conta e organização corretas; não use as chaves AWS anteriores. No processo de upload, os secrets são expostos ao cliente compatível com S3 pelos nomes `AWS_ACCESS_KEY_ID` e `AWS_SECRET_ACCESS_KEY`. Todas as chamadas de publicação devem usar explicitamente `MGC_S3_ENDPOINT`.
 
-### Como obter o CloudFront Distribution ID
+## Permissões
 
-1. Acesse o console da AWS
-2. Vá para o serviço CloudFront
-3. Selecione sua distribuição
-4. O Distribution ID estará visível no topo da página
+A identidade autenticada do deploy precisa de `s3:PutObject` nos objetos do bucket de destino. O script usa `put-object` e verifica o conteúdo com GET público; não precisa de `s3:ListBucket` nem de exclusão. Restrinja as permissões ao bucket do portfólio. Conceda acesso autenticado adicional somente se precisar de outras ferramentas de administração. Não são necessárias permissões CloudFront.
 
-### Como configurar os secrets
+A leitura anônima é outra regra: somente `s3:GetObject` nos objetos públicos. Não conceda listagem, escrita ou exclusão ao principal `*`. Preserve a administração autenticada ao editar a Bucket Policy da Magalu Cloud.
 
-1. Acesse: `https://github.com/SEU_USUARIO/portfolio/settings/secrets/actions`
-2. Clique em **New repository secret**
-3. Adicione cada secret com o nome e valor correspondentes
+## Operação e recuperação
 
-### Permissões IAM necessárias
+O pipeline compila o projeto e executa as verificações de deploy antes da publicação. Os arquivos do build são enviados antes de `index.html`, que é publicado por último. Arquivos antigos permanecem no bucket para permitir o carregamento de versões anteriores durante a transição.
 
-Crie uma política IAM com as seguintes permissões:
+O deploy automático atualiza apenas os objetos. Para alterações no Worker, valide com `npm run test:deploy` e `npm run worker:check`, depois publique manualmente com `npm run worker:deploy` na sua conta Cloudflare autenticada. Os Custom Domains são configurados no painel durante o corte; o repositório começa com `routes: []`. Antes de redeploy após o corte, sincronize esses domínios na configuração ou siga o modo de gerenciamento por painel descrito no guia: manter `routes: []` pode removê-los.
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "s3:PutObject",
-        "s3:GetObject",
-        "s3:DeleteObject",
-        "s3:ListBucket"
-      ],
-      "Resource": [
-        "arn:aws:s3:::sergionascimentojr.com",
-        "arn:aws:s3:::sergionascimentojr.com/*"
-      ]
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "cloudfront:CreateInvalidation"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-```
-
+Para interromper novos uploads, altere `MGC_DEPLOY_ENABLED` para `false`. Isso não desfaz uma publicação nem restaura o DNS. O procedimento para recuperar a origem anterior e a mudança de conta DNS está em [docs/deploy-magalu.md](../../docs/deploy-magalu.md). Conserve os recursos anteriores e o backup independente dos registros até encerrar a migração.
