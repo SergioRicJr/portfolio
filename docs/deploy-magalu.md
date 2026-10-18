@@ -4,7 +4,7 @@ Este guia prepara a migração do portfólio React/Vite para um bucket privado d
 
 O repositório contém a configuração e o código de publicação. A criação dos recursos Magalu, o deploy do Worker e o corte de produção são etapas operacionais a executar na sua conta. Preserve os recursos anteriores para rollback; este guia não pressupõe que o domínio esteja atendendo tráfego pela AWS neste momento.
 
-A zona DNS foi movida da conta Cloudflare anterior para a conta de destino e está **Active**. O titular confirmou o uso do domínio somente para o portfólio, sem email ou outros serviços. A próxima etapa é validar a entrega da origem Magalu e associar os domínios ao Worker; não é preciso repetir a mudança de nameservers. Consulte sempre a zona atual no painel.
+A zona DNS foi movida da conta Cloudflare anterior para a conta de destino e está **Active**. O titular confirmou o uso do domínio somente para o portfólio, sem email ou outros serviços. Os dois Custom Domains já estão associados ao Worker e registrados na configuração versionada. Valide a entrega da origem Magalu e os domínios; não é preciso repetir a mudança de nameservers. Consulte sempre a zona atual no painel.
 
 ## Arquitetura e requisitos
 
@@ -123,7 +123,9 @@ Use `curl.exe` no Windows se `curl` for um alias do PowerShell. Confirme HTTP 20
 
 O código está em [infra/cloudflare/worker.mjs](../infra/cloudflare/worker.mjs) e a configuração em [infra/cloudflare/wrangler.jsonc](../infra/cloudflare/wrangler.jsonc).
 
-Edite `vars.MGC_BUCKET_HOST` para o host do bucket confirmado no passo 2, por exemplo `portfolio-sergio-prod.br-se1.magaluobjects.com`. Mantenha `workers_dev: true` e `routes: []` nesta etapa. Não inclua credenciais S3: a origem é de leitura pública.
+Confira `vars.MGC_BUCKET_HOST` com o host do bucket confirmado no passo 2, por exemplo `portfolio-sergio-prod.br-se1.magaluobjects.com`. A configuração atual identifica a conta Cloudflare de destino e já contém as duas rotas de produção com `custom_domain: true`. A autenticação usada pelo Wrangler precisa ter acesso a essa conta. Não inclua credenciais S3: a origem é de leitura pública.
+
+Para uma instalação nova ou outro domínio, teste primeiro em um Worker separado, com nome próprio, `workers_dev: true` e `routes: []`, sem rotas de produção. Depois de validar `workers.dev`, adicione conscientemente os domínios desejados. Não publique a configuração de teste sobre o Worker atual: um array vazio pode remover suas associações de produção.
 
 Para desenvolvimento e validação local:
 
@@ -132,14 +134,14 @@ npm run worker:check
 npm run worker:dev
 ```
 
-O Worker local pode buscar os objetos no bucket configurado. Depois de validar, autentique na conta Cloudflare correta e publique:
+O Worker local pode buscar os objetos no bucket configurado. Depois de validar, confira que sua autenticação tem acesso à conta de destino configurada e publique. Para configurar uma nova autenticação, use o login interativo na conta apropriada:
 
 ```bash
 npx wrangler login
 npm run worker:deploy
 ```
 
-O Wrangler exibirá a URL `https://<worker>.<conta>.workers.dev`. Teste essa URL antes de configurar os domínios de produção. Este deploy publica o Worker; não cria bucket nem migra a zona DNS.
+O Wrangler exibirá a URL `https://<worker>.<conta>.workers.dev`. Em uma instalação nova, teste essa URL antes de associar os domínios. No Worker atual, o deploy usa as duas rotas de produção já versionadas. Este comando publica o Worker; não cria bucket nem migra a zona DNS.
 
 O Worker aceita GET/HEAD, mapeia a raiz para `index.html` e preserva os caminhos dos objetos. O fallback de SPA é limitado a uma origem que retorna 404, caminho sem extensão e cliente que aceita HTML; um asset ausente continua sendo erro. Uma falha 403 da origem resulta em 502 para não esconder problema de permissão.
 
@@ -149,7 +151,7 @@ Valide a página inicial, imagens, scripts e folhas de estilo no navegador, incl
 
 ## 5. Conferir a zona DNS ativa na conta de destino
 
-A mudança entre contas já foi feita e a nova zona está **Active**. Confirme esse estado no painel antes de associar os Custom Domains. Os nameservers utilizados devem ser os atribuídos à zona de destino, que permanecem registrados na GoDaddy. Não é necessário mudar o registrador nem repetir essa configuração.
+A mudança entre contas já foi feita e a nova zona está **Active**. Confirme esse estado no painel e as associações dos Custom Domains. Os nameservers utilizados devem ser os atribuídos à zona de destino, que permanecem registrados na GoDaddy. Não é necessário mudar o registrador nem repetir essa configuração.
 
 O titular confirmou que o domínio será usado somente para o portfólio, sem email ou outros serviços a preservar. O export da zona anterior continua sendo um backup útil, mas não é um bloqueio adicional para este corte já autorizado. Salve o estado atual e os destinos anteriores conhecidos para rollback. Não trate a existência da zona antiga como backup permanente.
 
@@ -177,11 +179,11 @@ Não exclua manualmente a zona anterior durante a transição. Depois de mover a
 
 ### Validar um subdomínio de teste
 
-Na zona ativa, configure primeiro um Custom Domain de teste sem registros conflitantes, por exemplo `preview.sergionascimentojr.com`, para o Worker. Valide por HTTPS nesse endereço. Mude apex e `www` para o Worker no corte planejado do próximo passo.
+Para uma instalação nova, na zona ativa, configure primeiro um Custom Domain de teste sem registros conflitantes e valide por HTTPS. Associe os domínios finais no corte planejado. No ambiente atual, apex e `www` já estão associados ao Worker; valide-os sem repetir o corte.
 
 ## 6. Cortar apex e www para o Worker
 
-Com bucket, Worker, subdomínio de teste e certificado validados, abra **Workers & Pages → seu Worker → Settings → Domains & Routes → Add → Custom Domain**.
+Os domínios atuais já estão associados. O procedimento abaixo serve de referência para uma nova associação ou outro domínio, após validar bucket, Worker, teste e certificado: abra **Workers & Pages → seu Worker → Settings → Domains & Routes → Add → Custom Domain**.
 
 1. Faça uma última cópia dos registros e valide o destino anterior previsto para rollback.
 2. No momento do corte de cada hostname, remova o registro CNAME conflitante, caso exista. Preserve verificações de propriedade e quaisquer registros de outros serviços que existam.
@@ -193,7 +195,7 @@ A Cloudflare cria os registros e administra os certificados de Custom Domains. U
 
 A origem do Worker é acessada por HTTPS. Mantenha SSL/TLS em **Full (Strict)** conforme a orientação de hospedagem da Magalu; não use Flexible como correção de erro de certificado. Confirme também o redirecionamento de HTTP para HTTPS realizado pelo Worker.
 
-Na configuração versionada, `routes: []` mantém o deploy inicial sem apropriar os domínios de produção. **Não faça um novo deploy do Worker mantendo esse array vazio depois do corte:** o Wrangler sobrescreve as rotas configuradas pelo painel. Antes do próximo deploy, registre conscientemente os dois Custom Domains em `routes` com `custom_domain: true`, preservando as demais opções da configuração:
+Os dois Custom Domains de produção já estão versionados em `routes`, com `custom_domain: true`, preservando as demais opções da configuração:
 
 ```json
 {
@@ -204,7 +206,7 @@ Na configuração versionada, `routes: []` mantém o deploy inicial sem apropria
 }
 ```
 
-Esse trecho deve ser mesclado no arquivo existente e passa a gerenciar o roteamento de produção. Como alternativa para gerenciamento exclusivamente pelo painel, remova as chaves `route`/`routes` do arquivo e defina `workers_dev: false` depois de concluir os testes. A [documentação de configuração do Wrangler](https://developers.cloudflare.com/workers/wrangler/configuration/#source-of-truth) explica esse comportamento. Não altere essa configuração de produção durante o preparo inicial.
+O arquivo atual gerencia o roteamento de produção; não é necessário adicionar esse trecho novamente. O Wrangler sobrescreve rotas configuradas apenas pelo painel, portanto mantenha os domínios no arquivo e não faça deploy de `routes: []` sobre esse Worker. Em uma instalação nova, comece sem rotas no Worker de teste e fixe os Custom Domains conscientemente após a validação. A [documentação de configuração do Wrangler](https://developers.cloudflare.com/workers/wrangler/configuration/#source-of-truth) explica esse comportamento.
 
 Confirme no final:
 

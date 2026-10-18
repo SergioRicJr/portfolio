@@ -151,11 +151,11 @@ npm run build
 
 1. Confira o bucket privado e configure os secrets da Magalu Cloud conforme o [guia](docs/deploy-magalu.md).
 2. Configure as variáveis do destino e publique o build com `python scripts/deploy-magalu.py`.
-3. Defina `MGC_BUCKET_HOST` em [infra/cloudflare/wrangler.jsonc](infra/cloudflare/wrangler.jsonc), autentique com `npx wrangler login` e execute `npm run worker:deploy`.
-4. Valide o endereço `workers.dev` e um subdomínio de teste na zona ativa. Depois siga o procedimento de corte para os dois domínios.
+3. Confira `MGC_BUCKET_HOST`, a conta de destino e os Custom Domains já versionados em [infra/cloudflare/wrangler.jsonc](infra/cloudflare/wrangler.jsonc). Com uma autenticação autorizada nessa conta, execute `npm run worker:deploy`.
+4. Valide `workers.dev` e os dois domínios configurados. Para uma instalação nova ou outro domínio, siga o preparo separado de teste e corte descrito no guia.
 5. Ative `MGC_DEPLOY_ENABLED=true` no GitHub quando o destino estiver validado.
 
-O deploy do Worker é manual. Os Custom Domains são configurados pelo painel da Cloudflare no momento do corte. O procedimento completo, incluindo DNS, HTTPS e recuperação, está em [docs/deploy-magalu.md](docs/deploy-magalu.md).
+O deploy do Worker é manual e a configuração versionada já gerencia os Custom Domains `sergionascimentojr.com` e `www.sergionascimentojr.com`. Alterações nessa configuração podem afetar o roteamento de produção. O procedimento completo, incluindo preparo de uma instalação nova, DNS, HTTPS e recuperação, está em [docs/deploy-magalu.md](docs/deploy-magalu.md).
 
 ## Informações Adicionais
 

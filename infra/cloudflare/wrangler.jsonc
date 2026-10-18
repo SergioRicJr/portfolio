@@ -1,13 +1,17 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "portfolio-magalu",
+  "account_id": "962716423f5557671a0cbf1fa93a5f08",
   "main": "worker.mjs",
   "compatibility_date": "2026-10-18",
   "compatibility_flags": ["nodejs_compat"],
   "upload_source_maps": true,
-  // Test workers.dev before associating production domains in the dashboard.
+  // Keep production domains here so future deployments preserve their routes.
   "workers_dev": true,
-  "routes": [],
+  "routes": [
+    { "pattern": "sergionascimentojr.com", "custom_domain": true },
+    { "pattern": "www.sergionascimentojr.com", "custom_domain": true }
+  ],
   "vars": {
     "MGC_BUCKET_HOST": "portfolio-sergio-prod.br-se1.magaluobjects.com"
   },
