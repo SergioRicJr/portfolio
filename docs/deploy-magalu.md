@@ -1,10 +1,10 @@
 # Deploy na Magalu Cloud com domínio próprio
 
-Este guia prepara a migração do portfólio React/Vite para um bucket público de Object Storage da Magalu Cloud, com um Worker da Cloudflare entregando o conteúdo por HTTPS. Os domínios previstos são `sergionascimentojr.com` e `www.sergionascimentojr.com`.
+Este guia prepara a migração do portfólio React/Vite para um bucket privado de Object Storage da Magalu Cloud com arquivos de leitura pública por ACL, e um Worker da Cloudflare entregando o conteúdo por HTTPS. Os domínios previstos são `sergionascimentojr.com` e `www.sergionascimentojr.com`.
 
 O repositório contém a configuração e o código de publicação. A criação dos recursos Magalu, o deploy do Worker e o corte de produção são etapas operacionais a executar na sua conta. Preserve os recursos anteriores para rollback; este guia não pressupõe que o domínio esteja atendendo tráfego pela AWS neste momento.
 
-O caminho escolhido inclui mover a zona DNS de uma conta Cloudflare anterior para a conta de destino. No preparo inicial, foi criada uma nova zona em estado **Pending**, sem alterar os nameservers existentes. Consulte os valores atribuídos à nova zona no painel; o corte só deve ocorrer depois de exportar o DNS antigo, importar e conferir os registros, preparar certificados e verificar DNSSEC.
+A zona DNS foi movida da conta Cloudflare anterior para a conta de destino e está **Active**. O titular confirmou o uso do domínio somente para o portfólio, sem email ou outros serviços. A próxima etapa é validar a entrega da origem Magalu e associar os domínios ao Worker; não é preciso repetir a mudança de nameservers. Consulte sempre a zona atual no painel.
 
 ## Arquitetura e requisitos
 
@@ -12,7 +12,7 @@ O caminho escolhido inclui mover a zona DNS de uma conta Cloudflare anterior par
 GoDaddy: registro de sergionascimentojr.com
   └─ Cloudflare: DNS, Custom Domains e certificado HTTPS
        └─ Worker: proxy de leitura dos arquivos
-            └─ Magalu Object Storage: conteúdo de dist/
+            └─ Magalu Object Storage: bucket privado, objetos de dist/ public-read
 ```
 
 A Cloudflare é uma dependência desta arquitetura: a Magalu armazena o site e a Cloudflare entrega as requisições no domínio próprio. Esse caminho é descrito no [guia oficial de hospedagem estática da Magalu](https://docs.magalu.cloud/docs/storage/object-storage/use-cases/static-website/). Não há necessidade de transferir o registro do domínio da GoDaddy.
@@ -21,8 +21,8 @@ Para hospedar sem o Worker, uma alternativa é uma VM Linux na Magalu com IP pú
 
 Você precisará de:
 
-- Conta ativa e organização correta na Magalu Cloud, com permissão para configurar Object Storage.
-- Acesso à conta Cloudflare anterior para exportar a zona e à conta de destino para preparar a nova zona.
+- Conta ativa na Magalu Cloud, com permissão para configurar Object Storage; nesta implantação é usada a conta pessoal.
+- Acesso à conta Cloudflare de destino e à zona ativa. O acesso à conta anterior permite guardar um backup adicional, se necessário.
 - Acesso à GoDaddy para alterar os nameservers e ao DNS atual para fazer backup.
 - Acesso às configurações de Actions do repositório GitHub.
 - Node.js 22+, npm, Python 3.12 e AWS CLI v2 para os comandos locais. A AWS CLI funciona como cliente S3 da Magalu; a hospedagem de destino não depende de uma conta AWS.
@@ -31,23 +31,23 @@ Verifique os preços e limites vigentes nas contas dos provedores antes de provi
 
 ## 1. Salvar o estado atual
 
-Antes de mudar DNS, registre fora do repositório:
+Antes de novas mudanças, recomenda-se registrar fora do repositório:
 
 1. Nameservers atuais configurados na GoDaddy.
 2. Exportação ou cópia completa da zona DNS atual, incluindo nome, tipo, valor, prioridade e TTL.
 3. Destino exato da distribuição CloudFront e configurações dos registros de apex e `www`.
-4. Registros MX, TXT de SPF/DKIM/DMARC, CAA, verificações de propriedade e subdomínios existentes.
+4. Registros adicionais existentes, como TXT de validação, CAA e subdomínios. Em outros domínios que usem email, preserve também MX e SPF/DKIM/DMARC.
 5. Estado de DNSSEC e registros DS no registrador, se estiver habilitado.
 6. Versão do site e configuração AWS que serão usadas para rollback.
 7. Configurações Cloudflare anteriores que não fazem parte do export DNS: SSL/TLS, regras de redirecionamento e cache, Workers, rotas e demais serviços usados.
 
 Conserve o bucket AWS, a distribuição CloudFront, o certificado ACM e a zona Route 53 durante a validação, quando fizerem parte da infraestrutura anterior. O novo workflow não atualiza mais a AWS: confirme e registre qual revisão e endpoint estarão disponíveis para recuperação, sem assumir que o DNS atual já aponta para eles.
 
-## 2. Criar bucket e credenciais na Magalu
+## 2. Bucket privado e credenciais na Magalu
 
-No [console da Magalu Cloud](https://console.magalu.cloud), selecione a organização e a região desejadas. Crie um bucket exclusivo para os arquivos públicos do portfólio, por exemplo `portfolio-sergio-prod`. Use nome em minúsculas, sem pontos; ele não precisa ser igual ao domínio.
+No [console da Magalu Cloud](https://console.magalu.cloud), selecione a conta e a região desejadas. Para este portfólio foi criado o bucket **privado** `portfolio-sergio-prod`, na região `br-se1`. O bucket não precisa ter o nome do domínio. Mantenha sua ACL privada e não habilite listagem pública.
 
-Anote o endpoint exibido para a região. Neste guia, os exemplos usam:
+Confirme o endpoint no console. Os exemplos usam:
 
 ```text
 MGC_REGION=br-se1
@@ -56,62 +56,29 @@ MGC_BUCKET=portfolio-sergio-prod
 MGC_BUCKET_HOST=portfolio-sergio-prod.br-se1.magaluobjects.com
 ```
 
-Confirme esses valores no console; eles devem apontar para a mesma região e bucket. O endpoint do cliente S3 tem `https://` e não contém o nome do bucket. Já `MGC_BUCKET_HOST`, usado pelo Worker, contém o bucket e não inclui protocolo ou caminho.
+Esses valores devem apontar para a mesma região e bucket. O endpoint do cliente S3 tem `https://` e não contém o nome do bucket. Já `MGC_BUCKET_HOST`, usado pelo Worker, contém o bucket e não inclui protocolo ou caminho.
 
-Crie credenciais para **Object Storage** no ID Magalu conforme o [guia de chaves do produto](https://docs.magalu.cloud/docs/devops-tools/api-keys/how-to/object-storage/create-api-keys). Selecione explicitamente o serviço Object Storage e os acessos necessários para publicação. Guarde o **Key Pair ID** e o **Key Pair Secret**; a API Key geral é um componente diferente, conforme a [documentação de credenciais](https://docs.magalu.cloud/docs/devops-tools/api-keys/overview/).
+### Credencial escolhida para esta conta pessoal
 
-Use uma identidade própria para o deploy, com `s3:PutObject` apenas nos objetos do bucket do portfólio. O script não lista nem apaga objetos e verifica os arquivos por GET público. A limpeza automática não faz parte deste deploy. Não coloque chaves no código, em `wrangler.jsonc`, em arquivos versionados ou em variáveis Vite que serão incluídas no navegador.
+A configuração atual usa uma chave pessoal de Object Storage chamada `portfolio-github-actions`, criada com autorização do titular, com **acesso total ao Object Storage e sem expiração**. Ela não é uma chave limitada ao bucket do portfólio. Seu uso fica dedicado ao GitHub Actions; o script publica apenas no destino configurado, mas isso não restringe a abrangência da credencial no provedor.
 
-### Leitura pública sem escrita anônima
+Guarde o **Key Pair ID** e o **Key Pair Secret** dessa chave somente nos secrets `MGC_ACCESS_KEY_ID` e `MGC_SECRET_ACCESS_KEY` do GitHub. A API Key geral é um componente diferente do par S3. Não coloque nenhum desses valores em código, arquivos do repositório, `wrangler.jsonc` ou variáveis Vite, que podem ser incluídas no navegador. Consulte o [guia de chaves do Object Storage](https://docs.magalu.cloud/docs/devops-tools/api-keys/how-to/object-storage/create-api-keys) e a [documentação dos componentes da credencial](https://docs.magalu.cloud/docs/devops-tools/api-keys/overview/).
 
-O Worker acessa a origem sem credenciais, portanto os objetos publicados precisam permitir leitura pública. Na edição de Bucket Policy, adicione esta declaração à política do bucket:
+Para publicar objetos com sua ACL, o publicador usa `s3:PutObject` e `s3:PutObjectAcl`. Não lista nem apaga objetos e verifica os arquivos por GET anônimo. Essas são as operações necessárias ao script; a chave pessoal escolhida tem permissões mais amplas.
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "PublicPortfolioRead",
-      "Effect": "Allow",
-      "Principal": "*",
-      "Action": "s3:GetObject",
-      "Resource": "portfolio-sergio-prod/*"
-    }
-  ]
-}
-```
+### Leitura pública apenas dos objetos publicados
 
-Esse é o trecho de leitura pública, não uma substituição completa para as permissões da sua conta. **Antes de salvar, inclua ou preserve as declarações autenticadas de administração e deploy.** Na Magalu, a política pode substituir o acesso anterior e bloquear a própria conta se seu tenant não tiver uma declaração correspondente. Consulte [Bucket Policy](https://docs.magalu.cloud/docs/storage/object-storage/how-to/permissions/policies/) e [problemas de permissionamento](https://docs.magalu.cloud/docs/storage/object-storage/troubleshooting/bucket-permission).
+O publicador envia cada arquivo com `aws s3api put-object --acl public-read`. Essa ACL mantém o proprietário com `FULL_CONTROL` e permite leitura pública daquele objeto. A ACL do bucket continua privada, sem `ListBucket` público. O Worker acessa esses objetos por HTTPS sem credenciais.
 
-Se o bucket ainda não tem política, inclua uma declaração explícita para o **tenant proprietário** antes de salvá-la. O exemplo de recuperação da Magalu permite ao proprietário administrar seu bucket desta forma:
+Não é necessário criar Bucket Policy nem descobrir o tenant UUID para esse fluxo. A Magalu documenta ACLs de objetos e de buckets separadas, sem herança recursiva: [ACLs do Object Storage](https://docs.magalu.cloud/docs/storage/object-storage/how-to/permissions/acls-ht). O suporte a ACL no upload também aparece no [exemplo oficial de PutObject](https://docs.magalu.cloud/docs/storage/object-storage/troubleshooting/presigned-url).
 
-```json
-{
-  "Effect": "Allow",
-  "Principal": { "MGC": ["SEU_TENANT_ID_PROPRIETARIO"] },
-  "Action": "s3:*",
-  "Resource": ["portfolio-sergio-prod", "portfolio-sergio-prod/*"]
-}
-```
+Mantenha somente conteúdo publicável em `dist/`: cada arquivo enviado pelo publicador ficará acessível diretamente pela URL de origem. Para objetos anteriores que ainda estejam privados, publique novamente pelo script. Se já existir uma Bucket Policy, revise-a antes: regras da policy podem prevalecer sobre ACLs. Preserve a administração do proprietário ao alterá-la; consulte [problemas de permissionamento](https://docs.magalu.cloud/docs/storage/object-storage/troubleshooting/bucket-permission).
 
-Mescle esse objeto no array `Statement` e substitua o ID pelo tenant proprietário confirmado no console. O acesso amplo dessa declaração é apenas para a administração autenticada do proprietário, nunca para `*`. Para limitar a credencial do CI, use uma conta de serviço de deploy separada.
+### Alternativa com identidade e permissões restritas
 
-Para a identidade autenticada de deploy, as declarações têm o seguinte formato; substitua o principal pelo tenant ou pela conta de serviço apropriada e mantenha a administração existente:
+Em um contexto de organização, o fluxo documentado usa uma Service Account com par S3 próprio, escopos `object-storage.read`/`object-storage.write`, permissões IAM correspondentes e Bucket Policy limitando ações e bucket. Para este publicador, a identidade também precisa poder definir a ACL do objeto. As três camadas devem ser configuradas; gerar apenas a chave não limita o acesso ao bucket. Consulte [Object Storage com Service Account](https://docs.magalu.cloud/docs/storage/object-storage/how-to/permissions/service-account-access) e [chaves de Service Accounts no Turia IAM](https://docs.magalu.cloud/docs/account-management/turia/turia-iam/organization/how-to/manage-sa-apikes).
 
-```json
-[
-  {
-    "Effect": "Allow",
-    "Principal": { "MGC": ["SEU_PRINCIPAL_AUTENTICADO"] },
-    "Action": "s3:PutObject",
-    "Resource": "portfolio-sergio-prod/*"
-  }
-]
-```
-
-Esses objetos devem ser mesclados no array `Statement`, não colados como uma política isolada. O formato de principal para conta de serviço é descrito pela Magalu; não substitua por um ARN IAM da AWS. Nos exemplos Magalu, `Resource` é o nome do bucket ou `bucket/*`.
-
-Não conceda `s3:ListBucket`, `s3:PutObject` ou `s3:DeleteObject` ao principal `*`. O bucket deve conter apenas arquivos que podem ser públicos, pois sua URL de origem também será acessível diretamente.
+Esse caminho é uma alternativa para evoluir a configuração. Não foi verificado como chave restrita de tenant pessoal e não descreve a credencial pessoal atualmente escolhida.
 
 ## 3. Compilar e publicar no bucket sem alterar o domínio
 
@@ -132,7 +99,7 @@ $env:MGC_REGION = 'br-se1'
 $env:MGC_BUCKET = 'portfolio-sergio-prod'
 ```
 
-Disponibilize o Key Pair ID e o Key Pair Secret da Magalu no processo pelos nomes `AWS_ACCESS_KEY_ID` e `AWS_SECRET_ACCESS_KEY`, usados pelo cliente compatível com S3. Não use credenciais AWS nem reutilize um `AWS_SESSION_TOKEN` de outra sessão. Prefira injetar esses valores pelo seu gerenciador de segredos; evite gravar credenciais no histórico do terminal.
+Este é um procedimento manual alternativo; a chave `portfolio-github-actions` fica dedicada aos secrets do GitHub. Para publicação local, use uma credencial Magalu própria para essa operação, com `s3:PutObject` e `s3:PutObjectAcl`, disponibilizada no processo como `AWS_ACCESS_KEY_ID` e `AWS_SECRET_ACCESS_KEY`. Esses nomes são usados pelo cliente compatível com S3. Não use credenciais AWS nem reutilize um `AWS_SESSION_TOKEN` de outra sessão. Prefira injetar os valores por um gerenciador de segredos, sem gravá-los no histórico do terminal.
 
 ```bash
 python scripts/deploy-magalu.py
@@ -140,7 +107,7 @@ python scripts/deploy-magalu.py
 
 Para validar somente endpoint, região e nome do bucket, sem credenciais nem upload, use `python scripts/deploy-magalu.py --validate` depois de definir as variáveis do destino.
 
-O publicador usa `MGC_S3_ENDPOINT` explicitamente, envia e verifica os bytes dos arquivos do build antes de publicar `index.html` e preserva arquivos antigos para clientes que ainda usam uma versão anterior. Assets com nome versionado podem receber cache longo; arquivos que mudam no mesmo endereço e HTML precisam de revalidação.
+O publicador usa `MGC_S3_ENDPOINT` explicitamente e define `--acl public-read` em cada upload. Envia e verifica os bytes dos arquivos do build antes de publicar `index.html` e preserva arquivos antigos para clientes que ainda usam uma versão anterior. Assets com nome versionado podem receber cache longo; arquivos que mudam no mesmo endereço e HTML precisam de revalidação.
 
 A origem tem [consistência eventual](https://docs.magalu.cloud/docs/storage/object-storage/additional-explanations/product-limits/). Aguarde e repita a validação após o upload; não considere um único 404 imediato como falha definitiva. A publicação do HTML por último reduz a janela em que ele referencia arquivos ainda indisponíveis.
 
@@ -150,7 +117,7 @@ Valide o acesso público sem enviar credenciais:
 curl -I https://portfolio-sergio-prod.br-se1.magaluobjects.com/index.html
 ```
 
-Use `curl.exe` no Windows se `curl` for um alias do PowerShell. Confirme HTTP 200 e `Content-Type: text/html`. Pegue um caminho real de JS/CSS em `dist/index.html` e valide também o objeto correspondente. A raiz do bucket não precisa mostrar o site ou listar arquivos: o Worker fará o mapeamento para `index.html`.
+Use `curl.exe` no Windows se `curl` for um alias do PowerShell. Confirme HTTP 200 e `Content-Type: text/html`. Pegue um caminho real de JS/CSS em `dist/index.html` e valide também o objeto correspondente. Confira que uma listagem anônima do bucket continua negada e que o proprietário mantém o acesso. A raiz do bucket não precisa mostrar o site ou listar arquivos: o Worker fará o mapeamento para `index.html`.
 
 ## 4. Publicar e testar o Worker
 
@@ -180,61 +147,44 @@ Somente arquivos versionados em `/assets/` recebem cache longo. HTML e demais ob
 
 Valide a página inicial, imagens, scripts e folhas de estilo no navegador, incluindo celular e atualização da página. Verifique erros no console e na aba Network.
 
-## 5. Mover a zona DNS entre contas Cloudflare
+## 5. Conferir a zona DNS ativa na conta de destino
 
-A migração entre contas consiste em preparar a zona na conta de destino e depois mudar a delegação na GoDaddy. Ela não transfere o registro do domínio. As duas zonas podem existir durante o preparo: a anterior continua sendo a zona delegada e a nova fica **Pending**, sem poder fazer proxy até a ativação. Siga o [procedimento oficial para mover um domínio entre contas](https://developers.cloudflare.com/fundamentals/manage-domains/move-domain/).
+A mudança entre contas já foi feita e a nova zona está **Active**. Confirme esse estado no painel antes de associar os Custom Domains. Os nameservers utilizados devem ser os atribuídos à zona de destino, que permanecem registrados na GoDaddy. Não é necessário mudar o registrador nem repetir essa configuração.
 
-### Exportar a zona anterior e importar na nova
+O titular confirmou que o domínio será usado somente para o portfólio, sem email ou outros serviços a preservar. O export da zona anterior continua sendo um backup útil, mas não é um bloqueio adicional para este corte já autorizado. Salve o estado atual e os destinos anteriores conhecidos para rollback. Não trate a existência da zona antiga como backup permanente.
 
-1. Entre na conta Cloudflare anterior e abra a zona `sergionascimentojr.com`.
-2. Em **DNS → Records → Import and Export → Export**, baixe o arquivo da zona e guarde uma cópia fora do repositório. Registre também as configurações que não estão no export DNS.
-3. Na conta de destino, abra a nova zona já preparada em **Pending**. Confira que ela pertence à conta pretendida; não crie novas cópias a cada tentativa.
-4. Use **DNS → Records → Import and Export → Import** para importar o arquivo BIND da origem.
-5. Compare nome, tipo, conteúdo, TTL, prioridade e estado de proxy dos registros nas duas contas. O export Cloudflare inclui atributos `cf-proxied:true/false`, que prevalecem sobre a opção geral de proxy da importação. Confira o resultado no painel.
+### Referência para migrações entre contas
 
-Referência: [importação e exportação de registros](https://developers.cloudflare.com/dns/manage-dns-records/how-to/import-and-export/).
+Se precisar repetir esse processo para outro domínio ou reconstruir a configuração anterior:
 
-**Não use o scan automático nem consultas públicas como substituto do export autenticado.** O scan pode omitir subdomínios e seletores DKIM personalizados. Em uma mudança entre contas, também pode capturar IPs do proxy Cloudflare como se fossem a origem e causar erro 1000. Se o backup da conta anterior ainda não estiver disponível, mantenha a zona nova em Pending e não troque os nameservers. Consulte as [limitações do scan](https://developers.cloudflare.com/dns/zone-setups/reference/dns-quick-scan/).
+1. Recomenda-se exportar a zona da conta anterior em **DNS → Records → Import and Export → Export** e guardar uma cópia fora do repositório.
+2. Prepare a zona na conta de destino. Durante o preparo ela pode ficar **Pending**, enquanto a conta anterior continua delegada. Não use uma zona Pending como se já pudesse fazer proxy.
+3. Importe o arquivo BIND e compare nomes, tipos, valores, TTL, prioridade e estado de proxy. O export Cloudflare inclui atributos `cf-proxied:true/false`, que prevalecem sobre a opção geral de proxy na importação.
+4. Recrie configurações que não fazem parte do DNS, como SSL/TLS, redirects, cache e Workers/rotas. Certificados da conta anterior não são transferidos automaticamente.
+5. Prepare DNSSEC e, no momento do corte, troque na GoDaddy os nameservers pelo par atribuído à nova zona. Não misture os pares das duas contas. Aguarde a zona de destino ficar **Active**.
 
-Ao revisar os registros:
+O scan automático pode omitir nomes específicos e, ao mudar de conta, capturar IPs do proxy Cloudflare como se fossem a origem, causando erro 1000. Ele não substitui uma cópia autenticada dos registros quando é necessário preservar configurações existentes. Se houver email ou outros serviços em outro domínio, confira seus registros antes da troca. Referências: [mover domínio entre contas](https://developers.cloudflare.com/fundamentals/manage-domains/move-domain/), [exportar/importar registros](https://developers.cloudflare.com/dns/manage-dns-records/how-to/import-and-export/) e [limitações do scan](https://developers.cloudflare.com/dns/zone-setups/reference/dns-quick-scan/).
 
-- Preserve MX e TXT de email, SPF/DKIM/DMARC, verificações de propriedade, CAA e os subdomínios existentes. Mantenha as configurações exigidas pelo serviço de email.
-- Preserve os destinos reais de apex e `www` conforme o export, sem presumir que apontem para a AWS. Valide e registre separadamente o endpoint anterior disponível para rollback.
-- Se precisar recuperar registros antigos do Route 53, lembre que **ALIAS não é um CNAME DNS comum**. Recrie a equivalência usando o destino real e [CNAME flattening da Cloudflare](https://developers.cloudflare.com/dns/cname-flattening/); não copie IPs observados do CloudFront nem IPs do proxy Cloudflare como origem.
-- Revise as configurações SSL/TLS, redirects, regras de cache, Workers/rotas e eventuais serviços ou assinaturas da zona anterior. Não são migrados pelo export DNS.
-- Preserve a intenção dos CAA e confira se permitem os novos certificados. Não remova todos os CAA para contornar um erro; consulte os [valores das autoridades certificadoras](https://developers.cloudflare.com/ssl/edge-certificates/caa-records/).
+Não copie IPs observados do CloudFront nem do proxy Cloudflare como se fossem a origem. Se recuperar registros do Route 53, um **ALIAS não é um CNAME DNS comum**: recrie a equivalência usando o destino real e [CNAME flattening](https://developers.cloudflare.com/dns/cname-flattening/).
 
-### Preparar certificados e DNSSEC antes da mudança de nameservers
+### Certificados e DNSSEC
 
-Os certificados da conta anterior não são transferidos para a nova. Planeje sua reemissão e valide o certificado novo antes de usar o proxy ou o Worker em produção. Universal SSL depende da ativação da zona; quando a origem anterior suporta acesso direto com certificado válido, manter seus registros em **DNS only** durante a emissão pode ajudar a transição. Não aplique essa opção sem confirmar que a origem funciona assim. Consulte a [ativação de Universal SSL](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/enable-universal-ssl/).
+Confira o estado do certificado na conta de destino antes de usar o Worker em produção. A emissão não é necessariamente imediata. Quando a origem anterior suporta acesso direto com certificado válido, manter seus registros em **DNS only** durante a emissão pode ajudar uma transição; não aplique essa opção sem confirmar que a origem funciona assim. Preserve a intenção dos registros CAA existentes e confira a compatibilidade com os novos certificados. Consulte [Universal SSL](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/enable-universal-ssl/) e [CAA](https://developers.cloudflare.com/ssl/edge-certificates/caa-records/).
 
-Verifique se existe DS/DNSSEC na GoDaddy. No fluxo comum:
+Antes de qualquer futura mudança de nameservers, confira DS/DNSSEC no registrador. No fluxo comum, remova o DS antigo, mantenha a assinatura anterior até seu TTL expirar, troque os nameservers e só então habilite DNSSEC na zona nova e publique seu novo DS. Não basta desligar DNSSEC na conta antiga nem reutilizar seu DS: uma chave incompatível pode causar SERVFAIL. Veja [migração e rollback DNSSEC](https://developers.cloudflare.com/dns/dnssec/) e [atualização de nameservers](https://developers.cloudflare.com/dns/nameservers/update-nameservers/).
 
-1. Remova o DS antigo no registrador.
-2. Mantenha a assinatura da zona anterior enquanto aguarda expirar o TTL do DS na zona pai.
-3. Só depois altere os nameservers para a zona nova.
-4. Com a nova zona ativa e a delegação propagada, habilite DNSSEC nela e publique seu **novo DS** na GoDaddy.
+Não exclua manualmente a zona anterior durante a transição. Depois de mover a delegação, ela pode passar para **Moved Away** e seguir para exclusão automática, portanto não é um backup duradouro. Preserve os arquivos e as configurações que precisará para reconstrução. Referência: [estados de zona](https://developers.cloudflare.com/dns/zone-setups/reference/domain-status/).
 
-Não basta desligar DNSSEC na conta antiga, nem reutilizar o DS anterior na zona nova. Um DS antigo em cache pode produzir SERVFAIL depois da troca de nameservers. Caso seja necessária continuidade de assinatura, use uma migração ativa suportada pelas contas e provedores. Referência: [migração e rollback DNSSEC](https://developers.cloudflare.com/dns/dnssec/).
+### Validar um subdomínio de teste
 
-### Ativar a conta de destino
-
-Depois de conferir o export/import, as configurações e DNSSEC, altere **somente os nameservers** na GoDaddy para o par **atribuído à nova zona pelo painel Cloudflare**. Não use automaticamente o par antigo nem misture os pares das duas contas. O registro do domínio permanece na GoDaddy. Consulte as [instruções oficiais de atualização de nameservers](https://developers.cloudflare.com/dns/nameservers/update-nameservers/).
-
-Na visão geral da zona nova, use a opção de reverificação dos nameservers quando necessário e aguarde **Active**. Valide registros, email, certificados e demais serviços. A mudança de conta deve preservar os destinos importados; o corte para o Worker acontece no próximo passo, depois de testá-lo.
-
-**Não exclua a zona anterior antes do corte.** Depois da ativação da nova conta, a zona antiga pode passar para **Moved Away** e seguir para exclusão automática. Ela não é um backup duradouro: conserve o export e as configurações para reconstrução e rollback. Consulte os [estados de zona](https://developers.cloudflare.com/dns/zone-setups/reference/domain-status/).
-
-### Validar o subdomínio de teste na zona ativa
-
-Com a nova zona ativa, configure primeiro um Custom Domain de teste sem registros conflitantes, por exemplo `preview.sergionascimentojr.com`, para o Worker. Valide por HTTPS nesse endereço. Preserve os registros de apex e `www` até o corte planejado para o Worker.
+Na zona ativa, configure primeiro um Custom Domain de teste sem registros conflitantes, por exemplo `preview.sergionascimentojr.com`, para o Worker. Valide por HTTPS nesse endereço. Mude apex e `www` para o Worker no corte planejado do próximo passo.
 
 ## 6. Cortar apex e www para o Worker
 
 Com bucket, Worker, subdomínio de teste e certificado validados, abra **Workers & Pages → seu Worker → Settings → Domains & Routes → Add → Custom Domain**.
 
 1. Faça uma última cópia dos registros e valide o destino anterior previsto para rollback.
-2. No momento do corte de cada hostname, remova o registro CNAME conflitante, caso exista. Não remova registros de email ou verificações de propriedade.
+2. No momento do corte de cada hostname, remova o registro CNAME conflitante, caso exista. Preserve verificações de propriedade e quaisquer registros de outros serviços que existam.
 3. Adicione `sergionascimentojr.com` como Custom Domain.
 4. Adicione `www.sergionascimentojr.com` como outro Custom Domain.
 5. Aguarde os certificados/domínios indicarem estado ativo e valide os dois endereços por HTTPS.
@@ -264,7 +214,7 @@ curl -I https://www.sergionascimentojr.com/
 curl -I http://sergionascimentojr.com/
 ```
 
-Os dois HTTPS devem apresentar certificado válido, entregar o portfólio e incluir `X-Portfolio-Origin: magalu-cloud`. O HTTP deve redirecionar para HTTPS. Confira também imagens, JS/CSS, atualização da página, console do navegador, contato e links externos. Teste novamente email e DNS de outros serviços.
+Os dois HTTPS devem apresentar certificado válido, entregar o portfólio e incluir `X-Portfolio-Origin: magalu-cloud`. O HTTP deve redirecionar para HTTPS. Confira também imagens, JS/CSS, atualização da página, console do navegador, contato e links externos. Se este procedimento for reutilizado em um domínio com outros serviços, valide também os registros desses serviços.
 
 ## 7. Ativar deploy automático
 
@@ -303,7 +253,7 @@ Preserve os recursos anteriores até concluir o período de observação escolhi
 
 ## Problemas comuns
 
-- **403 na origem:** confira organização, bucket, policy pública `s3:GetObject` e grant autenticado do deploy. A raiz do bucket não precisa permitir listagem.
+- **403 no objeto:** confira conta, bucket e se o upload definiu `--acl public-read`. A identidade de upload precisa de `s3:PutObject` e `s3:PutObjectAcl`. Se houver Bucket Policy, confira se não impede a ACL. Um 403 na listagem anônima do bucket é esperado nesta configuração privada.
 - **404 logo após upload:** confirme caminho e região, aguarde a consistência eventual e teste novamente. Verifique se o build realmente contém o arquivo.
 - **Arquivo JS recebe HTML:** confira o caminho do asset e o fallback do Worker. Um arquivo ausente deve retornar erro; publicar `index.html` sem seus assets pode quebrar a aplicação.
 - **Domínio não pode ser adicionado ao Worker:** confira se a zona está ativa na conta correta e se existe CNAME conflitante no hostname. Remova-o somente durante o corte planejado.

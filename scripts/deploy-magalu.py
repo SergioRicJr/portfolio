@@ -1,7 +1,7 @@
 """Publish a static Vite build to Magalu Object Storage, committing index last.
 
 Uses the S3-compatible put-object command, always with a Magalu endpoint.
-The bucket must already allow anonymous GetObject; no ListBucket is needed.
+Each object gets public-read ACL; the bucket can stay private without ListBucket.
 """
 
 import argparse
@@ -113,6 +113,7 @@ def upload(asset, config):
         "--endpoint-url", config.endpoint,
         "--region", config.region,
         "--bucket", config.bucket,
+        "--acl", "public-read",
         "--key", asset.key,
         "--body", str(asset.path),
         "--content-type", content_type,

@@ -24,13 +24,17 @@ Em **Secrets → New repository secret**, crie:
 - `MGC_ACCESS_KEY_ID`: **Key Pair ID** do Object Storage da Magalu Cloud.
 - `MGC_SECRET_ACCESS_KEY`: **Key Pair Secret** correspondente.
 
-A API Key geral da Magalu Cloud não substitui esse par S3. Configure as credenciais da conta e organização corretas; não use as chaves AWS anteriores. No processo de upload, os secrets são expostos ao cliente compatível com S3 pelos nomes `AWS_ACCESS_KEY_ID` e `AWS_SECRET_ACCESS_KEY`. Todas as chamadas de publicação devem usar explicitamente `MGC_S3_ENDPOINT`.
+A API Key geral da Magalu Cloud não substitui esse par S3. Configure as credenciais da conta correta; não use as chaves AWS anteriores. No processo de upload, os secrets são expostos ao cliente compatível com S3 pelos nomes `AWS_ACCESS_KEY_ID` e `AWS_SECRET_ACCESS_KEY`. Todas as chamadas de publicação devem usar explicitamente `MGC_S3_ENDPOINT`.
+
+Nesta conta pessoal foi escolhida, com autorização do titular, a chave `portfolio-github-actions`, de acesso total ao Object Storage e sem expiração. Seu uso fica dedicado ao GitHub Actions. Ela não é limitada ao bucket do portfólio, embora o workflow publique apenas no destino configurado. Guarde os valores somente nos secrets; não os inclua em arquivos versionados, no Worker ou em variáveis Vite.
 
 ## Permissões
 
-A identidade autenticada do deploy precisa de `s3:PutObject` nos objetos do bucket de destino. O script usa `put-object` e verifica o conteúdo com GET público; não precisa de `s3:ListBucket` nem de exclusão. Restrinja as permissões ao bucket do portfólio. Conceda acesso autenticado adicional somente se precisar de outras ferramentas de administração. Não são necessárias permissões CloudFront.
+A identidade autenticada do deploy precisa executar `s3:PutObject` e `s3:PutObjectAcl` nos objetos do destino. O script usa `put-object --acl public-read` e verifica o conteúdo com GET público; não precisa de `s3:ListBucket` nem de exclusão. Essas são as operações necessárias, não uma descrição do alcance da chave pessoal, que é mais amplo. Não são necessárias permissões CloudFront.
 
-A leitura anônima é outra regra: somente `s3:GetObject` nos objetos públicos. Não conceda listagem, escrita ou exclusão ao principal `*`. Preserve a administração autenticada ao editar a Bucket Policy da Magalu Cloud.
+A ACL `public-read` de cada objeto mantém o proprietário com `FULL_CONTROL` e permite leitura anônima. O bucket permanece privado, sem listagem pública. Esta configuração dispensa Bucket Policy; se já existir uma, suas regras devem ser compatíveis com a leitura pública e preservar a administração do proprietário. Consulte [ACLs da Magalu](https://docs.magalu.cloud/docs/storage/object-storage/how-to/permissions/acls-ht).
+
+Para uma futura identidade limitada ao bucket, o caminho documentado em organizações usa Service Account, escopos da chave, grants IAM e Bucket Policy. Isso não foi confirmado como opção de chave restrita na conta pessoal atual. O [guia completo](../../docs/deploy-magalu.md) descreve essa alternativa.
 
 ## Operação e recuperação
 

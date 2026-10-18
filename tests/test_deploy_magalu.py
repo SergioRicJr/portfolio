@@ -122,22 +122,32 @@ class PublicationTests(unittest.TestCase):
                 deploy_magalu.deploy(self.dist, CONFIG)
             upload.assert_not_called()
 
-    def test_uploads_use_magalu_put_object_without_delete_or_acl(self):
+    def test_uploads_use_magalu_put_object_with_public_read_acl_and_without_delete(self):
         asset = deploy_magalu.build_manifest(self.dist)[0]
         with patch.dict("os.environ", {**CREDENTIALS, "AWS_SESSION_TOKEN": "unrelated-token", "AWS_PROFILE": "unrelated-profile"}, clear=True), patch.object(deploy_magalu.subprocess, "run") as run:
             deploy_magalu.upload(asset, CONFIG)
         command = run.call_args.args[0]
         self.assertEqual(command[:3], ["aws", "s3api", "put-object"])
-        for option, expected in (("--endpoint-url", CONFIG.endpoint), ("--region", CONFIG.region), ("--bucket", CONFIG.bucket), ("--key", asset.key), ("--body", str(asset.path)), ("--cache-control", deploy_magalu.IMMUTABLE), ("--content-type", "text/javascript")):
+        for option, expected in (("--endpoint-url", CONFIG.endpoint), ("--region", CONFIG.region), ("--bucket", CONFIG.bucket), ("--acl", "public-read"), ("--key", asset.key), ("--body", str(asset.path)), ("--cache-control", deploy_magalu.IMMUTABLE), ("--content-type", "text/javascript")):
             self.assertEqual(command[command.index(option) + 1], expected)
         self.assertNotIn("--delete", command)
-        self.assertNotIn("--acl", command)
         environment = run.call_args.kwargs["env"]
         self.assertEqual(environment["AWS_REQUEST_CHECKSUM_CALCULATION"], "WHEN_REQUIRED")
         self.assertNotIn("AWS_SESSION_TOKEN", environment)
         self.assertNotIn("AWS_PROFILE", environment)
         self.assertTrue(run.call_args.kwargs["check"])
         self.assertEqual(run.call_args.kwargs["timeout"], 120)
+
+    def test_every_published_object_is_public_without_changing_bucket_permissions(self):
+        with patch.dict("os.environ", CREDENTIALS, clear=True), patch.object(deploy_magalu.subprocess, "run") as run, patch.object(deploy_magalu, "verify_public"):
+            deploy_magalu.deploy(self.dist, CONFIG)
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(len(commands), len(self.files))
+        self.assertEqual({command[command.index("--key") + 1] for command in commands}, set(self.files))
+        for command in commands:
+            self.assertEqual(command[:3], ["aws", "s3api", "put-object"])
+            self.assertEqual(command[command.index("--acl") + 1], "public-read")
+        self.assertEqual(commands[-1][commands[-1].index("--key") + 1], "index.html")
 
     def test_dependencies_are_verified_before_publishing_index(self):
         events = []

@@ -33,7 +33,7 @@ O projeto foi construído utilizando uma stack moderna de desenvolvimento web:
 
 ### Infraestrutura e Deploy
 
--   **Magalu Cloud Object Storage**: Armazena os arquivos compilados do site com API compatível com S3.
+-   **Magalu Cloud Object Storage**: Bucket privado com arquivos compilados de leitura pública por ACL, usando API compatível com S3.
 -   **Cloudflare Workers**: Entrega o conteúdo do bucket por HTTPS nos domínios personalizados.
 -   **Cloudflare DNS**: Gerencia os registros do domínio e seu apontamento para o Worker.
 -   **GoDaddy**: Mantém o registro do domínio.
@@ -120,6 +120,8 @@ Em **Settings → Secrets and variables → Actions** do repositório, configure
 
 Os nomes de credenciais `AWS_*` usados internamente pelo cliente S3 são apenas compatibilidade de protocolo. As credenciais e o endpoint devem ser da Magalu Cloud. O workflow não precisa de credenciais AWS nem invalida o CloudFront.
 
+A credencial escolhida para a conta pessoal é `portfolio-github-actions`, com acesso total ao Object Storage e sem expiração, aprovada pelo titular para uso dedicado no GitHub Actions. Ela não é limitada ao bucket. Guarde o par S3 apenas nos secrets indicados, sem incluí-lo no código ou em variáveis Vite.
+
 Consulte os detalhes em [.github/workflows/README.md](.github/workflows/README.md) e no [guia completo de migração](docs/deploy-magalu.md).
 
 ## Deploy e Publicação na Nuvem
@@ -132,7 +134,9 @@ GoDaddy (registro do domínio)
     → Magalu Cloud Object Storage (arquivos de dist/)
 ```
 
-Essa arquitetura usa a Cloudflare como dependência para entrega e HTTPS de `sergionascimentojr.com` e `www.sergionascimentojr.com`, seguindo o [guia oficial da Magalu](https://docs.magalu.cloud/docs/storage/object-storage/use-cases/static-website/). O domínio continua registrado na GoDaddy. A zona DNS será movida da conta Cloudflare anterior para a conta de destino: exporte e confira os registros antes de trocar os nameservers pelos atribuídos à nova zona. Preserve os recursos anteriores até a validação final e durante o período de rollback.
+Essa arquitetura usa a Cloudflare como dependência para entrega e HTTPS de `sergionascimentojr.com` e `www.sergionascimentojr.com`, seguindo o [guia oficial da Magalu](https://docs.magalu.cloud/docs/storage/object-storage/use-cases/static-website/). O domínio continua registrado na GoDaddy e a zona já está ativa na conta Cloudflare de destino. Preserve os recursos anteriores até a validação final e durante o período de rollback.
+
+Cada upload usa `--acl public-read`, preservando o controle do proprietário sobre o objeto. O bucket continua privado, sem listagem anônima; não é necessário criar Bucket Policy para esta configuração. Consulte as [ACLs oficiais da Magalu](https://docs.magalu.cloud/docs/storage/object-storage/how-to/permissions/acls-ht).
 
 ### Verificação local
 
@@ -145,10 +149,10 @@ npm run build
 
 ### Publicação
 
-1. Crie o bucket e as credenciais da Magalu Cloud conforme o [guia](docs/deploy-magalu.md).
+1. Confira o bucket privado e configure os secrets da Magalu Cloud conforme o [guia](docs/deploy-magalu.md).
 2. Configure as variáveis do destino e publique o build com `python scripts/deploy-magalu.py`.
 3. Defina `MGC_BUCKET_HOST` em [infra/cloudflare/wrangler.jsonc](infra/cloudflare/wrangler.jsonc), autentique com `npx wrangler login` e execute `npm run worker:deploy`.
-4. Valide o endereço `workers.dev`, conclua a migração da zona entre contas com backup do DNS anterior e teste um subdomínio. Depois siga o procedimento de corte para os dois domínios.
+4. Valide o endereço `workers.dev` e um subdomínio de teste na zona ativa. Depois siga o procedimento de corte para os dois domínios.
 5. Ative `MGC_DEPLOY_ENABLED=true` no GitHub quando o destino estiver validado.
 
 O deploy do Worker é manual. Os Custom Domains são configurados pelo painel da Cloudflare no momento do corte. O procedimento completo, incluindo DNS, HTTPS e recuperação, está em [docs/deploy-magalu.md](docs/deploy-magalu.md).
